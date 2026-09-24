@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environments / secrets
+.env
+
+# Tool caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Superpowers process artifacts
+.superpowers/
+docs/superpowers/
+
+# Flet
+.flet/
+build/
+
+# IDE
+.idea/
+.vscode/
+
+# macOS
+.DS_Store
