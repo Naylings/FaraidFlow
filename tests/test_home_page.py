@@ -41,14 +41,22 @@ async def test_appbar_title_and_language_button():
     assert appbar.actions[0].content == "🇬🇧 EN"
 
 
-async def test_tapping_calculate_shows_snackbar():
+async def test_tapping_calculate_routes_to_calculator():
+    pages = []
     home, page = await _home()
+    home.on_calculate = lambda: pages.append("calc")
     calculate = next(b for b in _buttons(home) if b.key == "menu-calculate")
     calculate.on_click(None)
-    assert len(page.dialogs) == 1
-    dialog = page.dialogs[0]
-    assert isinstance(dialog, ft.SnackBar)
-    assert dialog.content == "Coming soon: Calculate"
+    assert pages == ["calc"]
+
+
+async def test_information_and_about_still_snackbar():
+    home, page = await _home()
+    info = next(b for b in _buttons(home) if b.key == "menu-information")
+    about = next(b for b in _buttons(home) if b.key == "menu-about")
+    info.on_click(None)
+    about.on_click(None)
+    assert len(page.dialogs) == 2
 
 
 async def test_refresh_rebuilds_in_indonesian():

@@ -15,8 +15,8 @@ env/
 .ruff_cache/
 .pytest_cache/
 
-# Superpowers process artifacts
-.superpowers/
+# Superpowers process artifacts (repo-root workdir only; docs/superpowers IS tracked)
+/.superpowers/
 docs/superpowers/
 
 # Flet

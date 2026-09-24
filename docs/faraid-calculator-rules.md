@@ -142,7 +142,7 @@ Edge (flagged): **sole heir is a wife** → she gets 1/4 and 3/4 residue has no 
 | 10 | wife only | wife 1/4; residue 3/4 flagged unassigned |
 | 11 | brother_full (alone) | 100% via asabah |
 | 12 | son + father + wife + mother | wife 1/8, mother 1/6, father 1/6, son residue = 13/24 |
-| 13 | 2 uterine brothers (kalalah) | 1/3 pool, split equal → each 1/6 |
+| 13 | 2 uterine brothers (kalalah) | 1/3 pool, split equal; no asabah → radd (both are furudh, no spouse to exclude) → each brother **1/2** |
 | 14 | full sister + consanguine sister (kalalah) | full 1/2, consang tops up to 1/6, no asabah → radd → **full 3/4, consang 1/4** |
 | 15 | 2 full sisters + consanguine sister (kalalah) | consang excluded, full sisters 2/3, residue 1/3 → radd → each full sister **1/2** |
 | 16 | wife + 2 daughters + father | wife 1/8, daughters 2/3, father 1/6 + residue 1/24 = **5/24** |

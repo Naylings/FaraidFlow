@@ -13,9 +13,10 @@ MENU = [
 
 
 class HomePage:
-    def __init__(self, page: ft.Page, localization: Localization):
+    def __init__(self, page: ft.Page, localization: Localization, on_calculate=None):
         self.page = page
         self.localization = localization
+        self.on_calculate = on_calculate
         self.body = self.build_body()
 
     def build_appbar(self) -> ft.AppBar:
@@ -38,7 +39,7 @@ class HomePage:
                 key=f"menu-{key}",
                 width=260,
                 height=48,
-                on_click=lambda e, k=key: self._show_soon(k),
+                on_click=lambda e, k=key: (self.on_calculate() if k == "calculate" and self.on_calculate else self._show_soon(k)),
             )
             for key, icon in MENU
         ]
