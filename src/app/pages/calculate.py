@@ -54,7 +54,7 @@ class CalculationPage:
         self.heirs: dict[str, int] = {}
         self.estate = estate_mod.Estate()
         self.calc_result: engine.Result | None = None
-        self.result_card = ft.Column(spacing=12, key="result-card")
+        self.result_card = ft.Column(spacing=12, key=ft.ScrollKey("result-card"))
         self._parent_checkboxes: dict[str, ft.Checkbox] = {}
         self._root = None
 
@@ -319,7 +319,13 @@ class CalculationPage:
             ]),
             on_change=lambda e: self._sync_wife_count(),
         )
-        self._wife_count = _count_field("wife", t)
+        self._wife_count = ft.Dropdown(
+            key="count-wife",
+            label=t("wife"),
+            options=[ft.DropdownOption(key=str(n), content=ft.Text(str(n))) for n in range(1, 5)],
+            value="1",
+            width=110,
+        )
         self._count_fields = {
             key: _count_field(key, t, show_label=False)
             for _, keys in heirs.HEIR_SECTIONS

@@ -46,25 +46,39 @@ restore the `label=t(key)` in `_count_field` (~line 404).
 
 ---
 
-### 3. Auto-scroll to result after Calculate — KNOWN NOT WORKING
+### 3. Auto-scroll to result after Calculate
 
-**Change:** the Calculate button now uses an `_on_calculate` handler. It collects
-inputs, computes, then attempts to smoothly scroll the page down to the result card
-(400ms animation). The result `Column` was given `key="result-card"`, and the page's
-scrollable root `Column` is stored as `self._root` so it can be scrolled.
+**File:** `src/app/pages/calculate.py`
+**Change:** the result `Column` key was changed from a plain string to a scroll key:
+`key="result-card"` became `key=ft.ScrollKey("result-card")`.
 
-**Status: THIS DOES NOT ACTUALLY SCROLL.** Confirmed by the user in the real app. The
-likely cause is that `Column.scroll_to(scroll_key=...)` needs the control attached to a
-live page at the moment the coroutine runs, and/or the animation is cancelled when the
-result card is rebuilt in the same tick. This is **deferred** pending further research
-— do not assume it works.
+**Status: THE ROOT CAUSE.** Flet 1.0 has a breaking change where `scroll_to(scroll_key=...)`
+only matches controls whose key is wrapped in `ft.ScrollKey(...)` — a plain string key is
+**silently ignored**, so the page never moved. This was the actual reason auto-scroll did
+not work in the real app (previously misdiagnosed as an animation/timing issue).
 
-**Safety:** compute logic is unchanged and still runs synchronously, so results are
-correct regardless. The scroll is fire-and-forget and cannot break the result.
+Confirmed against:
+- flet issue [#5238](https://github.com/flet-dev/flet/issues/5238) — "`scroll_to()`:
+  `key` renamed to `scroll_key`; in control key should be `key=ft.ScrollKey()`"
+- flet issue [#5638](https://github.com/flet-dev/flet/issues/5638) — "`scroll_to` not
+  work"; the fix is to use `ft.ScrollKey`.
+- The installed flet 1.0.1 source: `scrollable_control.scroll_to()` documents that
+  `auto_scroll` must be `False` (it already is) and accepts a `scroll_key`.
+  `str(ft.ScrollKey("result-card")) == "result-card"`, so the existing string lookup in
+  `_scroll_to_result` still matches.
 
-**Revert:** set the button `on_click` back to
-`lambda e: (self._collect(), self._compute())` and remove `_on_calculate` /
-`_scroll_to_result` / the `self._root` bookkeeping.
+**Not included (deferred, optional robustness):**
+- Switching the raw `asyncio.get_running_loop()` / `asyncio.run()` scheduling in
+  `_on_calculate` to Flet's own `page.run_task()`.
+- Awaiting `page.update()` before scrolling, in case the client has not yet laid out the
+  freshly rebuilt result card.
+
+Neither was the cause of the failure; they are cleanups only. If the scroll still does
+not behave in the real app after this change, the `page.update()` ordering is the next
+thing to try.
+
+**Revert:** set `key=ft.ScrollKey("result-card")` back to `key="result-card"` on
+`self.result_card` (~line 57).
 
 ---
 
@@ -137,6 +151,49 @@ shows a **positive** `0.01` residual, matching the existing test
 **Revert:** in the residual block of `engine.resolve`, drop the `drift`-reconciliation
 loop and change the `each` quantization back to `.quantize(_QUANT)`. (Note: this
 reintroduces the negative-residual bug.)
+
+---
+
+## Round 3 — wife count constrained to a 1–4 dropdown
+
+Base: commit `ac3d20c`.
+
+### 7. Wife count is a dropdown limited to 1–4
+
+**File:** `src/app/pages/calculate.py`
+**Change:** the wife count control was changed from a free-text `TextField` to a
+non-editable `ft.Dropdown` with exactly four options: `1`, `2`, `3`, `4`. It defaults
+to `1` and is still disabled unless the spouse radio is set to "wife".
+
+**Why:** the wife count used to be a free number field, so it could be set to `0`, left
+blank, or set to an arbitrary value. That was inconsistent with how the engine actually
+behaves — selecting a wife means *at least one* wife — and it conflicted with the
+Islamic-law convention of at most four wives. A dropdown makes the valid range explicit
+and physically prevents invalid entry at the UI level.
+
+**Scope note:** the wife count dropdown is a **UI-level** constraint only. The engine
+still has no hard cap on the wife count (the `min(..., 4)` clamp in
+`heirs.normalize` and the `calc.errors.wife_max` message were removed earlier in commit
+`d0becdf` and have **not** been restored). The dropdown is what enforces 1–4 in the UI.
+
+**Safety:**
+- `_slot_from_inputs` already wrapped the wife count in `max(1, ...)`, so a blank or `0`
+  value still resolves to `1` — the dropdown just makes that state unreachable in
+  normal use.
+- Language-switch state capture/restore still works: the stored wife value is a plain
+  string (`"1"`–`"4"`), and a legacy stored value of `""`/`"0"` falls back to `1`
+  through the existing `max(1, ...)` guard. Covered by a regression test.
+- The son/daughter/brother/sister count fields are **unchanged**. For those, `0` and
+  blank legitimately mean "none" and that behavior is intentional.
+
+**Tests added** (`tests/test_calculate_page.py`):
+- `test_result_card_uses_scroll_key_so_scroll_to_can_find_it`
+- `test_wife_count_is_a_dropdown_limited_to_one_through_four`
+- `test_wife_count_dropdown_feeds_slot_and_defaults_to_one`
+- `test_wife_count_empty_or_zero_falls_back_to_one`
+
+**Revert:** replace the `ft.Dropdown(...)` assigned to `self._wife_count` in `build()`
+with `self._wife_count = _count_field("wife", t)`.
 
 ## Untracked / stray files
 - `main.py` (repo root, content was the single character `f`) was DELETED. It was

@@ -344,3 +344,45 @@ def test_equivalence_lines_use_group_share_so_sum_to_one():
     lines = _equivalence_lines(rows)
     # group shares: 2/5 and 1/5 -> lcm 5 -> "2/5 = 2/5", "1/5 = 1/5"
     assert lines == ["2/5 = 2/5", "1/5 = 1/5"]
+
+
+async def test_result_card_uses_scroll_key_so_scroll_to_can_find_it():
+    calc, pg, _ = await _page()
+    calc.build()
+    key = calc.result_card.key
+    assert isinstance(key, ft.ScrollKey)
+    assert str(key) == "result-card"
+
+
+async def test_wife_count_is_a_dropdown_limited_to_one_through_four():
+    calc, pg, _ = await _page()
+    calc.build()
+    wife = calc._wife_count
+    assert isinstance(wife, ft.Dropdown)
+    assert [o.key for o in wife.options] == ["1", "2", "3", "4"]
+    assert wife.value == "1"
+    assert wife.editable is not True
+
+
+async def test_wife_count_dropdown_feeds_slot_and_defaults_to_one():
+    calc, pg, _ = await _page()
+    calc.build()
+    calc._spouse.value = "wife"
+    calc._sync_wife_count()
+    assert calc._wife_count.disabled is False
+    assert calc._slot_from_inputs() == {"wife": 1}
+    calc._wife_count.value = "4"
+    assert calc._slot_from_inputs() == {"wife": 4}
+    calc._spouse.value = "none"
+    calc._sync_wife_count()
+    assert calc._wife_count.disabled is True
+    assert "wife" not in calc._slot_from_inputs()
+
+
+async def test_wife_count_empty_or_zero_falls_back_to_one():
+    calc, pg, _ = await _page()
+    calc.build()
+    calc._spouse.value = "wife"
+    for bad in ("", "0", None):
+        calc._wife_count.value = bad
+        assert calc._slot_from_inputs() == {"wife": 1}
