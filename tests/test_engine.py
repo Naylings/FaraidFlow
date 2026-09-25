@@ -160,8 +160,8 @@ def test_no_numbers_means_no_amounts():
 
 
 def test_errors_returned_when_invalid():
-    r = resolve({"wife": 5})
-    assert r.errors == ["calc.errors.no_heirs", "calc.errors.wife_max"]
+    r = resolve({"husband": 1, "wife": 1, "son": 1})
+    assert r.errors == ["calc.errors.spouse_both"]
     assert r.rows == []
 
 
