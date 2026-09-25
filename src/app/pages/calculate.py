@@ -1,5 +1,6 @@
 # src/app/pages/calculate.py
 
+import math
 from decimal import Decimal
 
 import flet as ft
@@ -28,6 +29,20 @@ def _money(value: Decimal, t) -> str:
         t("money.prefix")
         + digits.replace(".", "\u0000").replace(",", t("money.thousands_sep")).replace("\u0000", t("money.decimal_sep"))
     )
+
+
+def _equivalence_lines(rows) -> list[str]:
+    if not rows:
+        return []
+    lcm = 1
+    for row in rows:
+        lcm = math.lcm(lcm, (row.share * row.count).denominator)
+    out = []
+    for row in rows:
+        group = row.share * row.count
+        num = group * lcm
+        out.append(f"{_fmt_num(group)} = {num.numerator}/{lcm}")
+    return out
 
 
 class CalculationPage:
@@ -203,6 +218,7 @@ class CalculationPage:
             )
             blocks.append(self._build_breakdown())
             blocks.append(self._build_notes())
+            blocks.append(self._build_details(r))
 
         return ft.Column(controls=blocks, spacing=10)
 
@@ -237,6 +253,33 @@ class CalculationPage:
         if r.unassigned is not None:
             notes.append(t("calc.unassigned"))
         return ft.Text("  ".join(notes), size=12, italic=True) if notes else ft.Text("")
+
+    def _build_details(self, r) -> ft.ExpansionTile:
+        t = self.loc.get
+        children = []
+        eq = _equivalence_lines(r.rows)
+        if eq:
+            children.append(ft.Text("   ".join(eq), size=12))
+            if r.unassigned is None:
+                lcm = 1
+                for row in r.rows:
+                    lcm = math.lcm(lcm, (row.share * row.count).denominator)
+                total_num = sum(row.share * row.count for row in r.rows) * lcm
+                children.append(ft.Text(f"{total_num.numerator}/{lcm} = 1", size=12))
+        if r.blocked_reasons:
+            lines = [f"{t(k)} — {t(reason)}" for k, reason in r.blocked_reasons.items()]
+            children.append(ft.Text(t("calc.blocked") + ":  " + "   ".join(lines), size=12))
+        if self.estate.has_numbers and r.residual != 0 and r.unassigned is None:
+            children.append(ft.Text(
+                t("calc.residual").format(amount=_money(r.residual, t)), size=12
+            ))
+        title = t("calc.details")
+        return ft.ExpansionTile(
+            key="calc-details",
+            title=ft.Text(title),
+            controls=children,
+            expanded=False,
+        )
 
     def build(self):
         t = self.loc.get

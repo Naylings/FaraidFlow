@@ -305,3 +305,30 @@ async def test_section_headings_localize_in_id():
     assert "Anak" in texts
     assert "Orang Tua" in texts
     assert "Saudara" in texts
+
+
+from fractions import Fraction as F
+
+
+def test_equivalence_lines_from_group_shares():
+    from app.calculation.engine import Row
+    from app.pages.calculate import _equivalence_lines
+    rows = [
+        Row(key="husband", count=1, share=F(1, 2)),
+        Row(key="father", count=1, share=F(1, 3)),
+        Row(key="mother", count=1, share=F(1, 6)),
+    ]
+    lines = _equivalence_lines(rows)
+    assert lines == ["1/2 = 3/6", "1/3 = 2/6", "1/6 = 1/6"]
+
+
+def test_equivalence_lines_use_group_share_so_sum_to_one():
+    from app.calculation.engine import Row
+    from app.pages.calculate import _equivalence_lines
+    rows = [
+        Row(key="son", count=2, share=F(1, 5)),     # per person
+        Row(key="daughter", count=1, share=F(1, 5)),
+    ]
+    lines = _equivalence_lines(rows)
+    # group shares: 2/5 and 1/5 -> lcm 5 -> "2/5 = 2/5", "1/5 = 1/5"
+    assert lines == ["2/5 = 2/5", "1/5 = 1/5"]
