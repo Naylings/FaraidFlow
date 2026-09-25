@@ -2,7 +2,7 @@
 
 import math
 from dataclasses import dataclass, field
-from decimal import Decimal, getcontext
+from decimal import ROUND_FLOOR, Decimal, getcontext
 from fractions import Fraction
 
 from .estate import Estate
@@ -220,7 +220,7 @@ def resolve(raw: dict, estate: Estate | None = None) -> Result:
         if estate is not None and estate.has_numbers:
             total = Decimal(net) * Decimal(group.numerator) / Decimal(group.denominator)
             amount = total.quantize(_QUANT)
-            each = (Decimal(amount) / count).quantize(_QUANT)
+            each = (Decimal(amount) / count).quantize(_QUANT, rounding=ROUND_FLOOR)
         rows.append(Row(key=key, count=count, share=per, amount=amount, each=each))
 
     residual = Decimal(0)
@@ -230,8 +230,18 @@ def resolve(raw: dict, estate: Estate | None = None) -> Result:
         and rows
         and unassigned is None
     ):
-        distributed = sum(((row.each or Decimal(0)) * row.count for row in rows), Decimal(0))
-        residual = Decimal(net) - distributed
+        money_rows = [row for row in rows if row.amount is not None]
+        if money_rows:
+            allocated = sum((row.amount for row in money_rows), Decimal(0))
+            drift = Decimal(net) - allocated
+            if drift != 0:
+                largest = max(money_rows, key=lambda r: r.amount)
+                if largest.amount + drift >= 0:
+                    largest.amount += drift
+            for row in money_rows:
+                row.each = (row.amount / row.count).quantize(_QUANT, rounding=ROUND_FLOOR)
+            distributed = sum((row.each * row.count for row in money_rows), Decimal(0))
+            residual = Decimal(net) - distributed
 
     return Result(
         rows=rows,

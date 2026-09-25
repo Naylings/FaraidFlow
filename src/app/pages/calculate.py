@@ -202,12 +202,12 @@ class CalculationPage:
             t2 = self.loc.get
             show_each = any(row.count > 1 for row in r.rows)
             columns = [
-                ft.DataColumn(ft.Text(t2("calc.col_heir"))),
-                ft.DataColumn(ft.Text(t2("calc.col_share"))),
+                ft.DataColumn(ft.Text(t2("calc.col_heir")), expand=2),
+                ft.DataColumn(ft.Text(t2("calc.col_share")), expand=1),
             ]
             if show_each:
-                columns.append(ft.DataColumn(ft.Text(t2("calc.col_each"))))
-            columns.append(ft.DataColumn(ft.Text(t2("calc.col_total"))))
+                columns.append(ft.DataColumn(ft.Text(t2("calc.col_each")), expand=2))
+            columns.append(ft.DataColumn(ft.Text(t2("calc.col_total")), expand=2))
             rows = [
                 ft.DataRow(cells=[
                     ft.DataCell(ft.Text(t2(row.key) + (f"  x{row.count}" if row.count > 1 else ""))),
@@ -230,7 +230,7 @@ class CalculationPage:
 
         return ft.Column(controls=blocks, spacing=10)
 
-    def _build_breakdown(self) -> ft.Text:
+    def _build_breakdown(self) -> ft.Column:
         e = self.estate
         t = self.loc.get
         line = (
@@ -240,14 +240,18 @@ class CalculationPage:
             f"{t('calc.wasiat')} {_money(Decimal(e.wasiat), t)} = "
             f"{t('calc.net')} {_money(Decimal(e.net), t)}"
         )
+        rows = [ft.Text(line, size=12)]
         if not e.wasiat_ok:
-            line += (
-                f"  ({t('calc.wasiat_warn')} {t('calc.wasiat_cap')} {_money(Decimal(e.wasiat_cap), t)}"
-                f", {t('calc.wasiat_exc')} {_money(Decimal(e.wasiat_excess), t)}; {t('calc.wasiat_consent')})"
-            )
-        return ft.Text(line, size=12)
+            rows.append(ft.Text(
+                f"{t('calc.wasiat_warn')} {t('calc.wasiat_cap')} {_money(Decimal(e.wasiat_cap), t)}"
+                f", {t('calc.wasiat_exc')} {_money(Decimal(e.wasiat_excess), t)}"
+                f"; {t('calc.wasiat_consent')}",
+                size=12,
+                italic=True,
+            ))
+        return ft.Column(rows, spacing=4)
 
-    def _build_notes(self) -> ft.Text:
+    def _build_notes(self) -> ft.Column:
         r = self.calc_result
         t = self.loc.get
         notes = []
@@ -260,32 +264,33 @@ class CalculationPage:
             notes.append(t("calc.asabah").format(names=names))
         if r.unassigned is not None:
             notes.append(t("calc.unassigned"))
-        return ft.Text("  ".join(notes), size=12, italic=True) if notes else ft.Text("")
+        if not notes:
+            return ft.Column([], spacing=0)
+        return ft.Column([ft.Text("\n".join(f"• {n}" for n in notes), size=12, italic=True)], spacing=0)
 
     def _build_details(self, r) -> ft.ExpansionTile:
         t = self.loc.get
-        children = []
+        lines = []
         eq = _equivalence_lines(r.rows)
         if eq:
-            children.append(ft.Text("   ".join(eq), size=12))
+            for row, line in zip(r.rows, eq):
+                label = t(row.key) + (f" x{row.count}" if row.count > 1 else "")
+                lines.append(f"{label}: {line}")
             if r.unassigned is None:
                 lcm = 1
                 for row in r.rows:
                     lcm = math.lcm(lcm, (row.share * row.count).denominator)
                 total_num = sum(row.share * row.count for row in r.rows) * lcm
-                children.append(ft.Text(f"{total_num.numerator}/{lcm} = 1", size=12))
+                lines.append(f"{total_num.numerator}/{lcm} = 1")
         if r.blocked_reasons:
-            lines = [f"{t(k)} — {t(reason)}" for k, reason in r.blocked_reasons.items()]
-            children.append(ft.Text(t("calc.blocked") + ":  " + "   ".join(lines), size=12))
+            lines.append(t("calc.blocked") + ":")
+            lines.extend(f"• {t(k)} — {t(reason)}" for k, reason in r.blocked_reasons.items())
         if self.estate.has_numbers and r.residual != 0 and r.unassigned is None:
-            children.append(ft.Text(
-                t("calc.residual").format(amount=_money(r.residual, t)), size=12
-            ))
-        title = t("calc.details")
+            lines.append(t("calc.residual").format(amount=_money(r.residual, t)))
         return ft.ExpansionTile(
             key="calc-details",
-            title=ft.Text(title),
-            controls=children,
+            title=ft.Text(t("calc.details")),
+            controls=[ft.Text("\n".join(lines), size=12)] if lines else [],
             expanded=False,
         )
 
