@@ -41,7 +41,7 @@ TRANSLATIONS = {
     'calc.col_share': 'Bagian',
     'calc.col_amount': 'Jumlah',
     'calc.breakdown': 'Rincian',
-    'calc.gross': 'Harta kotor',
+    'calc.gross': 'Nilai aset',
     'calc.funeral': 'Biaya pemakaman',
     'calc.debts': 'Utang',
     'calc.wasiat': 'Wasiat',

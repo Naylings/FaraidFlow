@@ -41,7 +41,7 @@ TRANSLATIONS = {
     'calc.col_share': 'Share',
     'calc.col_amount': 'Amount',
     'calc.breakdown': 'Breakdown',
-    'calc.gross': 'Gross assets',
+    'calc.gross': 'Value of assets',
     'calc.funeral': 'Funeral costs',
     'calc.debts': 'Debts',
     'calc.wasiat': 'Wasiat',

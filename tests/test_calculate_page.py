@@ -86,3 +86,18 @@ async def test_tree_shows_deceased_and_selected_branches():
     texts = [c.value for c in _walk(calc.build()) if isinstance(c, ft.Text)]
     assert "Deceased" in texts or loc.get("calc.deceased") in texts
     assert "Son" in texts
+
+
+async def test_form_estate_fields_are_numeric_and_page_scrolls():
+    calc, pg, _ = await _page()
+    root = calc.build()
+    assert getattr(root, "scroll", None) == ft.ScrollMode.AUTO
+    assert getattr(root, "expand", None) is True
+    for key in ("estate-gross", "estate-funeral", "estate-debts", "estate-wasiat"):
+        tf = _by_key(root, key)
+        assert tf is not None
+        assert getattr(tf, "keyboard_type", None) == ft.KeyboardType.NUMBER
+        assert isinstance(getattr(tf, "input_filter", None), ft.NumbersOnlyInputFilter)
+    card_col = _by_key(root, "col-cards")
+    assert card_col is not None
+    assert getattr(card_col, "horizontal_alignment", None) == ft.CrossAxisAlignment.STRETCH

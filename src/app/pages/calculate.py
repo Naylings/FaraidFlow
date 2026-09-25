@@ -186,7 +186,14 @@ class CalculationPage:
             if key not in ("husband", "wife")
         }
         self._tf = {
-            k: ft.TextField(key=k, label=t({"estate-gross": "calc.gross", "estate-funeral": "calc.funeral", "estate-debts": "calc.debts", "estate-wasiat": "calc.wasiat"}[k]), value="", width=180)
+            k: ft.TextField(
+                key=k,
+                label=t({"estate-gross": "calc.gross", "estate-funeral": "calc.funeral", "estate-debts": "calc.debts", "estate-wasiat": "calc.wasiat"}[k]),
+                value="",
+                width=180,
+                keyboard_type=ft.KeyboardType.NUMBER,
+                input_filter=ft.NumbersOnlyInputFilter(),
+            )
             for k in ("estate-gross", "estate-funeral", "estate-debts", "estate-wasiat")
         }
         header = ft.Row([
@@ -227,12 +234,13 @@ class CalculationPage:
             controls=[
                 header,
                 ft.ResponsiveRow([
-                    ft.Column([estate_card, heirs_card, calc_btn], spacing=14, col={"sm": 12, "lg": 6}),
+                    ft.Column([estate_card, heirs_card, ft.Row([calc_btn], alignment=ft.MainAxisAlignment.CENTER)], spacing=14, col={"sm": 12, "lg": 6}, key="col-cards", horizontal_alignment=ft.CrossAxisAlignment.STRETCH),
                     ft.Column([self.result_card], spacing=14, col={"sm": 12, "lg": 6}),
                 ], run_spacing=8),
             ],
             spacing=14,
             scroll=ft.ScrollMode.AUTO,
+            expand=True,
         )
 
 
