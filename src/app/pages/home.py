@@ -19,11 +19,11 @@ class HomePage:
         self.on_calculate = on_calculate
         self.body = self.build_body()
 
-    def build_appbar(self) -> ft.AppBar:
+    def build_appbar(self, on_change=None) -> ft.AppBar:
         lang_button = LanguageButton(
             page=self.page,
             localization=self.localization,
-            on_change=self.refresh,
+            on_change=on_change or self.refresh,
         )
         return ft.AppBar(
             title=ft.Text(self.localization.get("home.title")),

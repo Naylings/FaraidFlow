@@ -66,3 +66,15 @@ async def test_refresh_rebuilds_in_indonesian():
     assert [b.content for b in _buttons(home)] == ["Hitung", "Informasi", "Tentang"]
     assert page.appbar.title.value == "FaraidFlow"
     assert page.appbar.actions[0].content == "🇮🇩 ID"
+
+
+async def test_appbar_injected_on_change_replaces_refresh():
+    home, page = await _home()
+    calls = []
+    appbar = home.build_appbar(on_change=lambda: calls.append("changed"))
+    assert appbar.actions[0].key == "lang-button"
+    page.appbar = appbar
+    page.appbar.actions[0].on_click(None)
+    id_tile = page.dialogs[0].content.controls[1]
+    await id_tile.on_click(None)
+    assert calls == ["changed"]
