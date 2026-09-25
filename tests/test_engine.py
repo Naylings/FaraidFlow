@@ -149,9 +149,9 @@ def test_amounts_are_net_times_group_share():
     e = Estate(gross=450_000_000)
     r = resolve({"wife": 1, "daughter": 2, "father": 1}, estate=e)
     row_wife = next(x for x in r.rows if x.key == "wife")
-    assert row_wife.amount == round(450_000_000 * F(1, 8))
+    assert row_wife.amount == Decimal("450000000") * Decimal("0.125")   # 1/8
     row_d = next(x for x in r.rows if x.key == "daughter")
-    assert row_d.amount == round(450_000_000 * F(2, 3))
+    assert row_d.amount == Decimal("450000000") * Decimal(2) / Decimal(3)
 
 
 def test_no_numbers_means_no_amounts():
@@ -189,3 +189,43 @@ def test_property_shares_sum_to_one_or_residue_notes(heirs):
     else:
         assert gap == 0
     assert all(x.share >= 0 for x in r.rows)
+
+
+from decimal import Decimal
+
+
+def _quant(value):
+    return value.quantize(Decimal("0.01"))
+
+
+def test_amounts_and_each_are_two_decimal_decimals():
+    e = Estate(gross=450_000_000)
+    r = resolve({"wife": 1, "daughter": 2, "father": 1}, estate=e)
+    row_wife = next(x for x in r.rows if x.key == "wife")
+    assert row_wife.amount == _quant(Decimal("56250000.00"))
+    assert row_wife.each == _quant(Decimal("56250000.00"))   # count == 1
+    row_d = next(x for x in r.rows if x.key == "daughter")
+    assert row_d.count == 2
+    assert row_d.amount == _quant(Decimal("450000000") * Decimal(2) / Decimal(3))
+    assert row_d.each == _quant(Decimal("450000000") * Decimal(2) / Decimal(3) / Decimal(2))
+    assert row_d.each * 2 <= row_d.amount + Decimal("0.01")
+
+
+def test_amount_still_none_when_no_estate():
+    r = resolve({"son": 1})
+    row = r.rows[0]
+    assert row.amount is None
+    assert row.each is None
+
+
+def test_residual_zero_when_exact():
+    e = Estate(gross=600_000_000)
+    r = resolve({"husband": 1, "father": 1, "mother": 1}, estate=e)
+    assert r.residual == Decimal("0")
+
+
+def test_residual_nonzero_when_head_split_leaves_cents():
+    e = Estate(gross=100)
+    r = resolve({"brother_uterine": 3}, estate=e)
+    # 3 uterine brothers share all (radd); each gets 33.33, leaving 0.01
+    assert r.residual == Decimal("0.01")

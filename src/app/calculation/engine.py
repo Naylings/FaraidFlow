@@ -2,11 +2,16 @@
 
 import math
 from dataclasses import dataclass, field
+from decimal import Decimal, getcontext
 from fractions import Fraction
 
 from .estate import Estate
 from .hajb import surviving
 from .heirs import HEIR_KEYS, errors, normalize
+
+getcontext().prec = 28
+
+_QUANT = Decimal("0.01")
 
 F = Fraction
 
@@ -22,7 +27,8 @@ class Row:
     key: str
     count: int
     share: Fraction
-    amount: int | None = None
+    amount: Decimal | None = None
+    each: Decimal | None = None
 
 
 @dataclass
@@ -36,6 +42,7 @@ class Result:
     unassigned: Fraction | None = None
     blocked_keys: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    residual: Decimal = field(default_factory=lambda: Decimal("0"))
 
 
 def _base_and_aul(shares):
@@ -197,9 +204,22 @@ def resolve(raw: dict, estate: Estate | None = None) -> Result:
         count = eff[key]
         per = group / count
         amount = None
+        each = None
         if estate is not None and estate.has_numbers:
-            amount = round(net * group)
-        rows.append(Row(key=key, count=count, share=per, amount=amount))
+            total = Decimal(net) * Decimal(group.numerator) / Decimal(group.denominator)
+            amount = total.quantize(_QUANT)
+            each = (Decimal(amount) / count).quantize(_QUANT)
+        rows.append(Row(key=key, count=count, share=per, amount=amount, each=each))
+
+    residual = Decimal("0")
+    if (
+        estate is not None
+        and estate.has_numbers
+        and rows
+        and unassigned is None
+    ):
+        distributed = sum(((row.each or Decimal("0")) * row.count for row in rows), Decimal("0"))
+        residual = Decimal(net) - distributed
 
     return Result(
         rows=rows,
@@ -210,4 +230,5 @@ def resolve(raw: dict, estate: Estate | None = None) -> Result:
         asabah_keys=asabah_keys,
         unassigned=unassigned,
         blocked_keys=blocked_keys,
+        residual=residual,
     )
