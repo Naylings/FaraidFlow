@@ -1,10 +1,33 @@
 # src/app/pages/calculate.py
 
+from decimal import Decimal
+
 import flet as ft
 
 from app.calculation import engine, heirs
 from app.calculation import estate as estate_mod
 from app.localization.localization import Localization
+
+
+def _fmt_int(n: int) -> str:
+    return f"{n:,}"
+
+
+def _parse_int(text: str) -> int:
+    try:
+        return int("".join(ch for ch in (text or "") if ch.isdigit()) or "0")
+    except ValueError:
+        return 0
+
+
+def _money(value: Decimal, t) -> str:
+    if value is None:
+        return "-"
+    digits = f"{value:,.2f}"
+    return (
+        t("money.prefix")
+        + digits.replace(".", "\u0000").replace(",", t("money.thousands_sep")).replace("\u0000", t("money.decimal_sep"))
+    )
 
 
 class CalculationPage:

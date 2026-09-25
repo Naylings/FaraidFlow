@@ -150,3 +150,30 @@ async def test_restore_state_regenerates_result_in_new_language():
     calc.restore_state(state)
     texts = [c.value for c in _walk(calc.result_card) if isinstance(c, ft.Text)]
     assert any("Suami" in (v or "") for v in texts)
+
+
+from app.pages.calculate import _fmt_int, _money
+
+
+def test_fmt_int_groups_thousands():
+    assert _fmt_int(5000000) == "5,000,000"
+    assert _fmt_int(0) == "0"
+
+
+def test_parse_int_strips_commas():
+    from app.pages.calculate import _parse_int
+    assert _parse_int("12,345") == 12345
+    assert _parse_int("") == 0
+    assert _parse_int("abc") == 0
+
+
+def test_money_formats_en():
+    from decimal import Decimal
+    t = {"money.prefix": "$", "money.thousands_sep": ",", "money.decimal_sep": "."}.get
+    assert _money(Decimal("1234567.89"), t) == "$1,234,567.89"
+
+
+def test_money_formats_id():
+    from decimal import Decimal
+    t = {"money.prefix": "$", "money.thousands_sep": ".", "money.decimal_sep": ","}.get
+    assert _money(Decimal("1234567.89"), t) == "$1.234.567,89"
