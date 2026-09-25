@@ -39,6 +39,7 @@ class CalculationPage:
         self.estate = estate_mod.Estate()
         self.calc_result: engine.Result | None = None
         self.result_card = ft.Column(spacing=12)
+        self._parent_checkboxes: dict[str, ft.Checkbox] = {}
 
     def _num(self, control_key, default_text="0"):
         tf = self._tf[control_key]
@@ -53,6 +54,9 @@ class CalculationPage:
         except (TypeError, ValueError):
             return 0
 
+    def _sync_wife_count(self):
+        self._wife_count.disabled = self._spouse.value != "wife"
+
     def _slot_from_inputs(self) -> dict[str, int]:
         h = {}
         if self._spouse.value == "husband":
@@ -63,6 +67,9 @@ class CalculationPage:
             v = self._count_of(field)
             if v:
                 h[key] = v
+        for key, cb in self._parent_checkboxes.items():
+            if cb.value:
+                h[key] = 1
         return h
 
     def _estate_from_inputs(self) -> estate_mod.Estate:
@@ -92,6 +99,7 @@ class CalculationPage:
             "spouse": self._spouse.value,
             "wife_count": self._wife_count.value,
             "counts": {k: f.value for k, f in self._count_fields.items()},
+            "parents": {k: cb.value for k, cb in self._parent_checkboxes.items()},
             "has_result": bool(self.result_card.controls),
         }
 
@@ -102,10 +110,14 @@ class CalculationPage:
             if k in self._tf:
                 self._tf[k].value = v
         self._spouse.value = state["spouse"]
+        self._sync_wife_count()
         self._wife_count.value = state["wife_count"]
         for k, v in state["counts"].items():
             if k in self._count_fields:
                 self._count_fields[k].value = v
+        for k, v in (state.get("parents") or {}).items():
+            if k in self._parent_checkboxes:
+                self._parent_checkboxes[k].value = v
         if state.get("has_result"):
             self._collect()
             self._compute()
@@ -226,14 +238,20 @@ class CalculationPage:
                 ft.Radio(value="husband", label=t("husband")),
                 ft.Radio(value="wife", label=t("wife"), tooltip=t("wife")),
             ]),
+            on_change=lambda e: self._sync_wife_count(),
         )
-        self._wife_count = _count_dropdown(1, 4, 1, t("wife"))
+        self._wife_count = _count_field("wife", t)
         self._count_fields = {
-            key: _count_dropdown(0, 10, 0, t(key))
+            key: _count_field(key, t)
             for _, keys in heirs.HEIR_SECTIONS
             for key in keys
-            if key not in ("husband", "wife")
+            if key not in ("husband", "wife", "father", "mother")
         }
+        self._parent_checkboxes = {
+            key: ft.Checkbox(key=key, label=t(key), value=False)
+            for key in ("father", "mother")
+        }
+        self._sync_wife_count()
         self._tf = {
             k: ft.TextField(
                 key=k,
@@ -264,8 +282,17 @@ class CalculationPage:
                 self._wife_count,
                 *[
                     ft.Column([
-                        ft.Text(t(section), size=13),
-                        *[ft.Row([ft.Text(t(key)), self._count_fields[key]]) for key in keys if key not in ("husband", "wife")],
+                        ft.Text(t(f"calc.{section}"), size=13),
+                        *[
+                            ft.Row([ft.Text(t(k)), self._count_fields[k]])
+                            for k in keys
+                            if k in self._count_fields
+                        ],
+                        *[
+                            ft.Row([self._parent_checkboxes[k]])
+                            for k in keys
+                            if k in self._parent_checkboxes
+                        ],
                     ])
                     for section, keys in heirs.HEIR_SECTIONS
                     if section in ("children", "parents", "siblings")
@@ -293,12 +320,14 @@ class CalculationPage:
         )
 
 
-def _count_dropdown(min_v, max_v, value, label):
-    return ft.Dropdown(
-        label=label,
-        value=str(value),
-        options=[ft.dropdown.Option(str(i)) for i in range(min_v, max_v + 1)],
+def _count_field(key, t):
+    return ft.TextField(
+        key=f"count-{key}",
+        label=t(key),
+        value="",
         width=110,
+        keyboard_type=ft.KeyboardType.NUMBER,
+        input_filter=ft.NumbersOnlyInputFilter(),
     )
 
 

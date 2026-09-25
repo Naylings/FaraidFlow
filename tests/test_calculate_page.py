@@ -118,20 +118,23 @@ async def test_restore_state_none_is_noop():
 async def test_capture_restore_round_trip_preserves_state():
     calc, _, _ = await _page()
     calc.build()
-    calc._tf["estate-gross"].value = "5000000"
+    calc._tf["estate-gross"].value = "5,000,000"
     calc._spouse.value = "wife"
     calc._wife_count.value = "2"
     calc._count_fields["daughter"].value = "2"
+    calc._parent_checkboxes["father"].value = True
     state = calc.capture_state()
-    assert state["tf"]["estate-gross"] == "5000000"
+    assert state["tf"]["estate-gross"] == "5,000,000"
     assert state["spouse"] == "wife"
     assert state["counts"]["daughter"] == "2"
+    assert state["parents"]["father"] is True
     assert state["has_result"] is False
     calc.build()
     calc.restore_state(state)
-    assert calc._tf["estate-gross"].value == "5000000"
+    assert calc._tf["estate-gross"].value == "5,000,000"
     assert calc._spouse.value == "wife"
     assert calc._count_fields["daughter"].value == "2"
+    assert calc._parent_checkboxes["father"].value is True
 
 
 async def test_restore_state_regenerates_result_in_new_language():
@@ -177,3 +180,33 @@ def test_money_formats_id():
     from decimal import Decimal
     t = {"money.prefix": "$", "money.thousands_sep": ".", "money.decimal_sep": ","}.get
     assert _money(Decimal("1234567.89"), t) == "$1.234.567,89"
+
+
+async def test_wife_count_disabled_by_default_and_enabled_on_wife():
+    calc, pg, _ = await _page()
+    root = calc.build()
+    wife = _by_key(root, "count-wife")
+    assert wife is not None
+    assert wife.disabled is True
+    calc._spouse.value = "wife"
+    calc._spouse.on_change(None)
+    assert calc._wife_count.disabled is False
+
+
+async def test_parents_are_checkboxes_without_count_fields():
+    calc, pg, _ = await _page()
+    root = calc.build()
+    checks = [c for c in _walk(root) if isinstance(c, ft.Checkbox)]
+    assert {c.key for c in checks} >= {"father", "mother"}
+    assert "father" not in calc._count_fields
+    assert "mother" not in calc._count_fields
+
+
+async def test_heir_counts_are_number_fields_not_dropdowns():
+    calc, pg, _ = await _page()
+    root = calc.build()
+    for key in ("son", "daughter", "brother_full", "sister_uterine"):
+        field = _by_key(root, f"count-{key}")
+        assert field is not None
+        assert isinstance(field, ft.TextField)
+        assert not isinstance(field, ft.Dropdown)
