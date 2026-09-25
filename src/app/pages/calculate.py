@@ -1,5 +1,6 @@
 # src/app/pages/calculate.py
 
+import asyncio
 import math
 from decimal import Decimal
 
@@ -53,8 +54,9 @@ class CalculationPage:
         self.heirs: dict[str, int] = {}
         self.estate = estate_mod.Estate()
         self.calc_result: engine.Result | None = None
-        self.result_card = ft.Column(spacing=12)
+        self.result_card = ft.Column(spacing=12, key="result-card")
         self._parent_checkboxes: dict[str, ft.Checkbox] = {}
+        self._root = None
 
     def _num(self, control_key, default_text="0"):
         tf = self._tf[control_key]
@@ -287,6 +289,20 @@ class CalculationPage:
             expanded=False,
         )
 
+    async def _scroll_to_result(self):
+        if self._root is not None:
+            await self._root.scroll_to(scroll_key="result-card", duration=400)
+
+    def _on_calculate(self, e):
+        self._collect()
+        self._compute()
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(self._scroll_to_result())
+        else:
+            loop.create_task(self._scroll_to_result())
+
     def build(self):
         t = self.loc.get
         self._spouse = ft.RadioGroup(
@@ -300,7 +316,7 @@ class CalculationPage:
         )
         self._wife_count = _count_field("wife", t)
         self._count_fields = {
-            key: _count_field(key, t)
+            key: _count_field(key, t, show_label=False)
             for _, keys in heirs.HEIR_SECTIONS
             for key in keys
             if key not in ("husband", "wife", "father", "mother")
@@ -314,7 +330,7 @@ class CalculationPage:
             k: ft.TextField(
                 key=k,
                 label=t({"estate-gross": "calc.gross", "estate-funeral": "calc.funeral", "estate-debts": "calc.debts", "estate-wasiat": "calc.wasiat"}[k]),
-                value="",
+                value="0",
                 width=180,
                 keyboard_type=ft.KeyboardType.NUMBER,
                 input_filter=ft.InputFilter(
@@ -367,9 +383,9 @@ class CalculationPage:
             content=t("calc.calculate"),
             key="btn-calculate",
             width=260, height=48,
-            on_click=lambda e: (self._collect(), self._compute()),
+            on_click=self._on_calculate,
         )
-        return ft.Column(
+        self._root = ft.Column(
             controls=[
                 header,
                 ft.ResponsiveRow([
@@ -381,12 +397,13 @@ class CalculationPage:
             scroll=ft.ScrollMode.AUTO,
             expand=True,
         )
+        return self._root
 
 
-def _count_field(key, t):
+def _count_field(key, t, show_label=True):
     return ft.TextField(
         key=f"count-{key}",
-        label=t(key),
+        label=t(key) if show_label else None,
         value="",
         width=110,
         keyboard_type=ft.KeyboardType.NUMBER,
