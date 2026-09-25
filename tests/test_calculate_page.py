@@ -101,3 +101,52 @@ async def test_form_estate_fields_are_numeric_and_page_scrolls():
     card_col = _by_key(root, "col-cards")
     assert card_col is not None
     assert getattr(card_col, "horizontal_alignment", None) == ft.CrossAxisAlignment.STRETCH
+
+
+async def test_capture_state_none_before_build():
+    calc, _, _ = await _page()
+    assert calc.capture_state() is None
+
+
+async def test_restore_state_none_is_noop():
+    calc, _, _ = await _page()
+    calc.build()
+    calc.restore_state(None)
+    assert calc.capture_state()["has_result"] is False
+
+
+async def test_capture_restore_round_trip_preserves_state():
+    calc, _, _ = await _page()
+    calc.build()
+    calc._tf["estate-gross"].value = "5000000"
+    calc._spouse.value = "wife"
+    calc._wife_count.value = "2"
+    calc._count_fields["daughter"].value = "2"
+    state = calc.capture_state()
+    assert state["tf"]["estate-gross"] == "5000000"
+    assert state["spouse"] == "wife"
+    assert state["counts"]["daughter"] == "2"
+    assert state["has_result"] is False
+    calc.build()
+    calc.restore_state(state)
+    assert calc._tf["estate-gross"].value == "5000000"
+    assert calc._spouse.value == "wife"
+    assert calc._count_fields["daughter"].value == "2"
+
+
+async def test_restore_state_regenerates_result_in_new_language():
+    calc, _, loc = await _page("en")
+    calc.build()
+    calc._tf["estate-gross"].value = "6000000"
+    calc._spouse.value = "husband"
+    calc._count_fields["daughter"].value = "1"
+    calc._collect()
+    calc._compute()
+    state = calc.capture_state()
+    assert state["has_result"] is True
+    assert _by_key(calc.build(), "result-table") is not None
+    await loc.set_language("id")
+    calc.build()
+    calc.restore_state(state)
+    texts = [c.value for c in _walk(calc.result_card) if isinstance(c, ft.Text)]
+    assert any("Suami" in (v or "") for v in texts)

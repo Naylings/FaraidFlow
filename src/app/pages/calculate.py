@@ -61,6 +61,32 @@ class CalculationPage:
         )
         self.result_card.controls = [self._build_result()]
 
+    def capture_state(self):
+        if not hasattr(self, "_tf"):
+            return None
+        return {
+            "tf": {k: tf.value for k, tf in self._tf.items()},
+            "spouse": self._spouse.value,
+            "wife_count": self._wife_count.value,
+            "counts": {k: f.value for k, f in self._count_fields.items()},
+            "has_result": bool(self.result_card.controls),
+        }
+
+    def restore_state(self, state):
+        if state is None:
+            return
+        for k, v in state["tf"].items():
+            if k in self._tf:
+                self._tf[k].value = v
+        self._spouse.value = state["spouse"]
+        self._wife_count.value = state["wife_count"]
+        for k, v in state["counts"].items():
+            if k in self._count_fields:
+                self._count_fields[k].value = v
+        if state.get("has_result"):
+            self._collect()
+            self._compute()
+
     def _build_tree(self) -> ft.Card:
         t = self.loc.get
         branches = []
