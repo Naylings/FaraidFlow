@@ -41,6 +41,7 @@ class Result:
     asabah_keys: list[str] = field(default_factory=list)
     unassigned: Fraction | None = None
     blocked_keys: list[str] = field(default_factory=list)
+    blocked_reasons: dict[str, str] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
     residual: Decimal = field(default_factory=lambda: Decimal(0))
 
@@ -192,6 +193,17 @@ def resolve(raw: dict, estate: Estate | None = None) -> Result:
                     unassigned = residue
 
     blocked_keys = sorted(k for k in _SIBLINGS if h[k] > 0 and eff[k] == 0)
+    blocked_reasons: dict[str, str] = {}
+    for k in blocked_keys:
+        if k in ("brother_consang", "sister_consang"):
+            if h["son"] > 0 or h["father"] > 0:
+                blocked_reasons[k] = "calc.block.reason.lineal"
+            else:
+                blocked_reasons[k] = "calc.block.reason.full_brother"
+        elif k in ("brother_uterine", "sister_uterine"):
+            blocked_reasons[k] = "calc.block.reason.uterine"
+        else:  # brother_full / sister_full
+            blocked_reasons[k] = "calc.block.reason.lineal"
 
     net = estate.net if estate is not None else 0
     rows = []
@@ -230,5 +242,6 @@ def resolve(raw: dict, estate: Estate | None = None) -> Result:
         asabah_keys=asabah_keys,
         unassigned=unassigned,
         blocked_keys=blocked_keys,
+        blocked_reasons=blocked_reasons,
         residual=residual,
     )

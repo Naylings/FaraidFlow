@@ -229,3 +229,24 @@ def test_residual_nonzero_when_head_split_leaves_cents():
     r = resolve({"brother_uterine": 3}, estate=e)
     # 3 uterine brothers share all (radd); each gets 33.33, leaving 0.01
     assert r.residual == Decimal("0.01")
+
+
+def test_blocked_reasons_by_full_brother():
+    r = resolve({"son": 1, "brother_full": 1, "sister_full": 1, "brother_consang": 1})
+    assert r.blocked_keys == ["brother_consang", "brother_full", "sister_full"]
+    assert r.blocked_reasons["brother_full"] == "calc.block.reason.lineal"
+    assert r.blocked_reasons["sister_full"] == "calc.block.reason.lineal"
+    assert r.blocked_reasons["brother_consang"] == "calc.block.reason.lineal"
+
+
+def test_blocked_reasons_full_sibling_blocks_consang():
+    r = resolve({"brother_full": 1, "brother_consang": 1, "sister_consang": 1, "son": 0})
+    assert r.blocked_keys == ["brother_consang", "sister_consang"]
+    assert r.blocked_reasons["brother_consang"] == "calc.block.reason.full_brother"
+
+
+def test_blocked_reasons_uterine_by_son_daughter_father():
+    r = resolve({"son": 1, "brother_uterine": 1, "sister_uterine": 1})
+    assert r.blocked_keys == ["brother_uterine", "sister_uterine"]
+    assert r.blocked_reasons["brother_uterine"] == "calc.block.reason.uterine"
+    assert r.blocked_reasons["sister_uterine"] == "calc.block.reason.uterine"
