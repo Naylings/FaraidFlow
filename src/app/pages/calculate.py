@@ -174,22 +174,28 @@ class CalculationPage:
             blocks.append(ft.Column(claims, spacing=6))
 
         if r.rows:
+            t2 = self.loc.get
+            show_each = any(row.count > 1 for row in r.rows)
+            columns = [
+                ft.DataColumn(ft.Text(t2("calc.col_heir"))),
+                ft.DataColumn(ft.Text(t2("calc.col_share"))),
+            ]
+            if show_each:
+                columns.append(ft.DataColumn(ft.Text(t2("calc.col_each"))))
+            columns.append(ft.DataColumn(ft.Text(t2("calc.col_total"))))
             rows = [
                 ft.DataRow(cells=[
-                    ft.DataCell(ft.Text(t(row.key) + (f"  x{row.count}" if row.count > 1 else ""))),
+                    ft.DataCell(ft.Text(t2(row.key) + (f"  x{row.count}" if row.count > 1 else ""))),
                     ft.DataCell(ft.Text(_fmt_num(row.share))),
-                    ft.DataCell(ft.Text(f"Rp{row.amount:,}" if row.amount is not None else "-")),
+                    *([ft.DataCell(ft.Text(_money(row.each, t2)))] if show_each else []),
+                    ft.DataCell(ft.Text(_money(row.amount, t2) if row.amount is not None else "-")),
                 ])
                 for row in r.rows
             ]
             blocks.append(
                 ft.DataTable(
                     key="result-table",
-                    columns=[
-                        ft.DataColumn(ft.Text(t("calc.col_heir"))),
-                        ft.DataColumn(ft.Text(t("calc.col_share"))),
-                        ft.DataColumn(ft.Text(t("calc.col_amount"))),
-                    ],
+                    columns=columns,
                     rows=rows,
                 )
             )

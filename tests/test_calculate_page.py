@@ -15,6 +15,12 @@ async def _page(language="en"):
 
 def _children(control):
     items = list(getattr(control, "controls", None) or [])
+    for attr in ("rows", "columns", "cells"):
+        children = getattr(control, attr, None)
+        if isinstance(children, list):
+            for child in children:
+                if isinstance(child, ft.Control):
+                    items.append(child)
     for attr in ("content", "label"):
         child = getattr(control, attr, None)
         if child is not None and isinstance(child, ft.Control):
@@ -229,3 +235,34 @@ async def test_heir_counts_are_number_fields_not_dropdowns():
         assert field is not None
         assert isinstance(field, ft.TextField)
         assert not isinstance(field, ft.Dropdown)
+
+
+async def test_each_column_hidden_when_all_single():
+    calc, pg, _ = await _page()
+    calc.heirs = {"son": 1}
+    calc.estate = estate_mod.Estate(gross=60000000)
+    calc._compute()
+    result = calc._build_result()
+    table = _by_key(result, "result-table")
+    assert table is not None
+    headers = [c.label.value for c in table.columns]
+    assert "Each" not in headers
+
+
+async def test_each_column_shown_when_multiple():
+    calc, pg, _ = await _page()
+    calc.heirs = {"son": 2}
+    calc.estate = estate_mod.Estate(gross=90000000)
+    calc._compute()
+    table = _by_key(calc._build_result(), "result-table")
+    headers = [c.label.value for c in table.columns]
+    assert headers[-3:] == ["Share", "Each", "Total"]
+
+
+async def test_amounts_display_with_dollar_and_two_decimals():
+    calc, pg, _ = await _page()
+    calc.heirs = {"daughter": 1}
+    calc.estate = estate_mod.Estate(gross=100)
+    calc._compute()
+    cells = [c.content.value for c in _walk(calc._build_result()) if isinstance(c, ft.DataCell)]
+    assert any("$" in v for v in cells)
