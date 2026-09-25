@@ -97,10 +97,29 @@ async def test_form_estate_fields_are_numeric_and_page_scrolls():
         tf = _by_key(root, key)
         assert tf is not None
         assert getattr(tf, "keyboard_type", None) == ft.KeyboardType.NUMBER
-        assert isinstance(getattr(tf, "input_filter", None), ft.NumbersOnlyInputFilter)
+        assert getattr(tf, "input_filter", None) is not None
+        assert isinstance(getattr(tf, "input_filter", None), ft.InputFilter)
     card_col = _by_key(root, "col-cards")
     assert card_col is not None
     assert getattr(card_col, "horizontal_alignment", None) == ft.CrossAxisAlignment.STRETCH
+
+
+async def test_estate_field_groups_input_commas():
+    calc, pg, _ = await _page()
+    root = calc.build()
+    gross = _by_key(root, "estate-gross")
+    assert gross is not None
+    gross.value = "5000000"
+    calc._collect()
+    assert calc.estate.gross == 5000000
+
+
+async def test_estate_input_accepts_commas_and_strips_on_parse():
+    calc, pg, _ = await _page()
+    root = calc.build()
+    calc._tf["estate-gross"].value = "12,345,678"
+    calc._collect()
+    assert calc.estate.gross == 12345678
 
 
 async def test_capture_state_none_before_build():

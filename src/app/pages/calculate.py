@@ -43,10 +43,14 @@ class CalculationPage:
 
     def _num(self, control_key, default_text="0"):
         tf = self._tf[control_key]
-        try:
-            return max(0, int(tf.value or default_text or "0"))
-        except ValueError:
-            return 0
+        return _parse_int(tf.value or default_text)
+
+    def _format_estate_field(self, key):
+        tf = self._tf[key]
+        digits = _parse_int(tf.value)
+        grouped = _fmt_int(digits)
+        if tf.value != grouped:
+            tf.value = grouped
 
     def _count_of(self, field) -> int:
         try:
@@ -259,7 +263,12 @@ class CalculationPage:
                 value="",
                 width=180,
                 keyboard_type=ft.KeyboardType.NUMBER,
-                input_filter=ft.NumbersOnlyInputFilter(),
+                input_filter=ft.InputFilter(
+                    regex_string=r"^[0-9,]*$",
+                    allow=True,
+                    replacement_string="",
+                ),
+                on_change=lambda e, k=k: self._format_estate_field(k),
             )
             for k in ("estate-gross", "estate-funeral", "estate-debts", "estate-wasiat")
         }
