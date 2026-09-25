@@ -266,3 +266,42 @@ async def test_amounts_display_with_dollar_and_two_decimals():
     calc._compute()
     cells = [c.content.value for c in _walk(calc._build_result()) if isinstance(c, ft.DataCell)]
     assert any("$" in v for v in cells)
+
+
+async def test_debt_note_only_when_unpaid():
+    calc, pg, loc = await _page()
+    calc.heirs = {"son": 1}
+    calc.estate = estate_mod.Estate(gross=100, funeral=10, debts=20)
+    calc._compute()
+    texts = [c.value for c in _walk(calc._build_result()) if isinstance(c, ft.Text)]
+    assert not any(t and "Debts are not inherited" in t for t in texts)
+
+
+async def test_debt_note_shown_when_unpaid():
+    calc, pg, loc = await _page()
+    calc.heirs = {"son": 1}
+    calc.estate = estate_mod.Estate(gross=100, funeral=10, debts=120)
+    calc._compute()
+    texts = [c.value for c in _walk(calc._build_result()) if isinstance(c, ft.Text)]
+    assert any(t and "Debts are not inherited" in t for t in texts)
+
+
+async def test_no_heirs_error_suppresses_others():
+    calc, pg, _ = await _page()
+    calc.heirs = {}
+    calc.estate = estate_mod.Estate(gross=100)
+    calc._compute()
+    errs = [c.value for c in _walk(calc._build_result()) if isinstance(c, ft.Text) and c.color == ft.Colors.ERROR]
+    assert errs == ["Select at least one heir."]
+
+
+async def test_section_headings_localize_in_id():
+    loc = await Localization.load(FakeStorage(), default_language="en")
+    await loc.set_language("id")
+    pg = FakePage()
+    calc = CalculationPage(pg, loc, back_home=lambda: None)
+    root = calc.build()
+    texts = [c.value for c in _walk(root) if isinstance(c, ft.Text)]
+    assert "Anak" in texts
+    assert "Orang Tua" in texts
+    assert "Saudara" in texts

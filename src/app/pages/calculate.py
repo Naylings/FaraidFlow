@@ -158,15 +158,17 @@ class CalculationPage:
 
         claims = []
         if r.errors:
-            for e in r.errors:
+            prioritized = [e for e in r.errors if e == "calc.errors.no_heirs"] or r.errors
+            for e in prioritized:
                 claims.append(ft.Text(t(e), color=ft.Colors.ERROR))
-        if self.estate.debts > 0 and not r.errors:
+        if self.estate.has_numbers and self.estate.unpaid > 0 and not r.errors:
             claims.append(ft.Text(t("calc.debt_note"), italic=True, size=12))
-        if not self.estate.wasiat_ok and not r.errors:
-            claims.append(ft.Text(t("calc.wasiat_warn"), color=ft.Colors.AMBER))
-        if self.estate.net <= 0:
+        if not r.errors and self.estate.net <= 0 and self.estate.has_numbers:
             if self.estate.unpaid > 0:
-                claims.append(ft.Text(t("calc.depleted").format(amount=f"{self.estate.unpaid:,}"), color=ft.Colors.ERROR))
+                claims.append(ft.Text(
+                    t("calc.depleted").format(amount=_money(Decimal(self.estate.unpaid), t)),
+                    color=ft.Colors.ERROR,
+                ))
             else:
                 claims.append(ft.Text(t("calc.nothing"), color=ft.Colors.ERROR))
 
@@ -208,14 +210,16 @@ class CalculationPage:
         e = self.estate
         t = self.loc.get
         line = (
-            f"{t('calc.gross')} {e.gross:,} - {t('calc.funeral')} {e.funeral:,} - "
-            f"{t('calc.debts')} {e.debts:,} - {t('calc.wasiat')} {e.wasiat:,} = "
-            f"{t('calc.net')} {e.net:,}"
+            f"{t('calc.gross')} {_money(Decimal(e.gross), t)} - "
+            f"{t('calc.funeral')} {_money(Decimal(e.funeral), t)} - "
+            f"{t('calc.debts')} {_money(Decimal(e.debts), t)} - "
+            f"{t('calc.wasiat')} {_money(Decimal(e.wasiat), t)} = "
+            f"{t('calc.net')} {_money(Decimal(e.net), t)}"
         )
         if not e.wasiat_ok:
             line += (
-                f"  ({t('calc.wasiat_warn')} {t('calc.wasiat_cap')} {e.wasiat_cap:,}"
-                f", {t('calc.wasiat_exc')} {e.wasiat_excess:,}; {t('calc.wasiat_consent')})"
+                f"  ({t('calc.wasiat_warn')} {t('calc.wasiat_cap')} {_money(Decimal(e.wasiat_cap), t)}"
+                f", {t('calc.wasiat_exc')} {_money(Decimal(e.wasiat_excess), t)}; {t('calc.wasiat_consent')})"
             )
         return ft.Text(line, size=12)
 
@@ -232,11 +236,6 @@ class CalculationPage:
             notes.append(t("calc.asabah").format(names=names))
         if r.unassigned is not None:
             notes.append(t("calc.unassigned"))
-        net = self.estate.net
-        if net and r.rows:
-            total = sum(row.amount for row in r.rows)
-            if total != net:
-                notes.append(t("calc.rounded"))
         return ft.Text("  ".join(notes), size=12, italic=True) if notes else ft.Text("")
 
     def build(self):
