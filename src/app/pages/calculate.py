@@ -143,13 +143,19 @@ class CalculationPage:
 
     def _build_tree(self) -> ft.Card:
         t = self.loc.get
+        blocked = getattr(self.calc_result, "blocked_reasons", {}) or {}
         branches = []
         for section, keys in heirs.HEIR_SECTIONS:
             present = {k: self.heirs.get(k, 0) for k in keys if self.heirs.get(k, 0) > 0}
             if not present and section != "spouse":
                 continue
             chips = ft.Column([
-                ft.Chip(label=ft.Text(t(k) + (f" x{c}" if c > 1 else "")), bgcolor=ft.Colors.SURFACE_CONTAINER)
+                ft.Chip(
+                    label=ft.Text(t(k) + (f" x{c}" if c > 1 else "")),
+                    bgcolor=ft.Colors.SURFACE_CONTAINER,
+                    disabled=k in blocked,
+                    tooltip=t("calc.blocked_tip").format(reason=t(blocked[k])) if k in blocked else None,
+                )
                 for k, c in present.items()
             ], spacing=4)
             branches.append(ft.Column(

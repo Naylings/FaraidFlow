@@ -322,6 +322,18 @@ def test_equivalence_lines_from_group_shares():
     assert lines == ["1/2 = 3/6", "1/3 = 2/6", "1/6 = 1/6"]
 
 
+async def test_tree_marks_blocked_sibling_disabled():
+    calc, pg, _ = await _page()
+    calc.heirs = {"brother_full": 1, "brother_consang": 1}
+    calc.estate = estate_mod.Estate()
+    calc._compute()
+    root = calc.build()
+    chips = [c for c in _walk(root) if isinstance(c, ft.Chip) and c.label.value.startswith("Paternal")]
+    assert chips
+    assert all(chip.disabled for chip in chips)
+    assert all(chip.tooltip is not None for chip in chips)
+
+
 def test_equivalence_lines_use_group_share_so_sum_to_one():
     from app.calculation.engine import Row
     from app.pages.calculate import _equivalence_lines
