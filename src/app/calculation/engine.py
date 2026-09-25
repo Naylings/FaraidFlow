@@ -42,7 +42,7 @@ class Result:
     unassigned: Fraction | None = None
     blocked_keys: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
-    residual: Decimal = field(default_factory=lambda: Decimal("0"))
+    residual: Decimal = field(default_factory=lambda: Decimal(0))
 
 
 def _base_and_aul(shares):
@@ -211,14 +211,14 @@ def resolve(raw: dict, estate: Estate | None = None) -> Result:
             each = (Decimal(amount) / count).quantize(_QUANT)
         rows.append(Row(key=key, count=count, share=per, amount=amount, each=each))
 
-    residual = Decimal("0")
+    residual = Decimal(0)
     if (
         estate is not None
         and estate.has_numbers
         and rows
         and unassigned is None
     ):
-        distributed = sum(((row.each or Decimal("0")) * row.count for row in rows), Decimal("0"))
+        distributed = sum(((row.each or Decimal(0)) * row.count for row in rows), Decimal(0))
         residual = Decimal(net) - distributed
 
     return Result(
