@@ -223,7 +223,7 @@ class CalculationPage:
             for k in ("estate-gross", "estate-funeral", "estate-debts", "estate-wasiat")
         }
         header = ft.Row([
-            ft.IconButton(ft.Icons.ARROW_BACK, tooltip=t("calc.back"), on_click=lambda e: self.back_home and self.back_home()),
+            ft.IconButton(ft.Icons.ARROW_BACK, key="back-home", tooltip=t("calc.back"), on_click=lambda e: self.back_home and self.back_home()),
             ft.Text(t("calc.title"), size=22, weight=ft.FontWeight.BOLD),
         ])
         estate_card = ft.Card(content=ft.Container(

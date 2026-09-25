@@ -14,20 +14,49 @@ async def main(page: ft.Page):
     localization = await Localization.load(prefs, default_language="en")
 
     home = HomePage(page, localization)
+    screen = {"name": "home"}
+    calc = None
 
     def show_content(control):
         page.clean()
         page.add(control)
         page.update()
 
+    def build_appbar():
+        return home.build_appbar(on_change=on_language_changed)
+
+    def on_language_changed():
+        if screen["name"] == "calc" and calc is not None:
+            refresh_calculate()
+        else:
+            show_home()
+
+    def show_home():
+        nonlocal calc
+        screen["name"] = "home"
+        calc = None
+        page.appbar = build_appbar()
+        home.body = home.build_body()
+        show_content(home.build())
+        page.update()
+
     def show_calculate():
-        calc = CalculationPage(page, localization, back_home=lambda: show_content(home.build()))
-        calc_page_root = calc.build()
-        page.appbar = home.build_appbar()  # keep the language button visible
-        show_content(calc_page_root)
+        nonlocal calc
+        calc = CalculationPage(page, localization, back_home=show_home)
+        screen["name"] = "calc"
+        refresh_calculate()
+
+    def refresh_calculate():
+        state = calc.capture_state()
+        page.appbar = build_appbar()
+        root = calc.build()
+        calc.restore_state(state)
+        show_content(root)
+        page.update()
 
     home.on_calculate = show_calculate
-    page.appbar = home.build_appbar()
+    screen["name"] = "home"
+    page.appbar = build_appbar()
     page.add(home.build())
     page.update()
 
