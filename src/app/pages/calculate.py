@@ -58,6 +58,13 @@ def _label(text: str) -> ft.Text:
     )
 
 
+TWO_PANE_MIN_WIDTH = 992
+
+
+def is_two_pane(width) -> bool:
+    return width is not None and width >= TWO_PANE_MIN_WIDTH
+
+
 def _pairs(keys):
     return [tuple(keys[i:i + 2]) for i in range(0, len(keys), 2)]
 
@@ -73,6 +80,8 @@ class CalculationPage:
         self.result_card = ft.Column(spacing=12, key=ft.ScrollKey("result-card"))
         self._parent_checkboxes: dict[str, ft.Checkbox] = {}
         self._root = None
+        self.two_pane = is_two_pane(getattr(page, "width", None))
+        self._scroll_host = None
 
     def _num(self, control_key, default_text="0"):
         tf = self._tf[control_key]
@@ -330,8 +339,8 @@ class CalculationPage:
         )
 
     async def _scroll_to_result(self):
-        if self._root is not None:
-            await self._root.scroll_to(scroll_key="result-card", duration=400)
+        if self._scroll_host is not None:
+            await self._scroll_host.scroll_to(scroll_key="result-card", duration=400)
 
     def _on_calculate(self, e):
         self._collect()
@@ -359,6 +368,7 @@ class CalculationPage:
 
     def build(self):
         t = self.loc.get
+        self.two_pane = is_two_pane(getattr(self.page, "width", None))
         self._spouse = ft.RadioGroup(
             value="none",
             content=ft.Row([
@@ -443,18 +453,53 @@ class CalculationPage:
             width=260, height=48,
             on_click=self._on_calculate,
         )
+        form_controls = [estate_card, heirs_card, ft.Row([calc_btn], alignment=ft.MainAxisAlignment.CENTER)]
+        if self.two_pane:
+            form_pane = ft.Column(
+                form_controls,
+                spacing=14,
+                key="col-cards",
+                expand=1,
+                scroll=ft.ScrollMode.AUTO,
+                horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+            )
+            result_pane = ft.Column(
+                [self.result_card],
+                spacing=14,
+                key="pane-result",
+                expand=1,
+                scroll=ft.ScrollMode.AUTO,
+            )
+            panes = ft.Row(
+                [form_pane, result_pane],
+                spacing=8,
+                expand=True,
+                vertical_alignment=ft.CrossAxisAlignment.STRETCH,
+            )
+            root_scroll = None
+        else:
+            form_pane = ft.Column(
+                form_controls,
+                spacing=14,
+                col={"sm": 12, "lg": 6},
+                key="col-cards",
+                horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+            )
+            result_pane = ft.Column(
+                [self.result_card],
+                spacing=14,
+                col={"sm": 12, "lg": 6},
+                key="pane-result",
+            )
+            panes = ft.ResponsiveRow([form_pane, result_pane], run_spacing=8)
+            root_scroll = ft.ScrollMode.AUTO
         self._root = ft.Column(
-            controls=[
-                header,
-                ft.ResponsiveRow([
-                    ft.Column([estate_card, heirs_card, ft.Row([calc_btn], alignment=ft.MainAxisAlignment.CENTER)], spacing=14, col={"sm": 12, "lg": 6}, key="col-cards", horizontal_alignment=ft.CrossAxisAlignment.STRETCH),
-                    ft.Column([self.result_card], spacing=14, col={"sm": 12, "lg": 6}),
-                ], run_spacing=8),
-            ],
+            controls=[header, panes],
             spacing=14,
-            scroll=ft.ScrollMode.AUTO,
+            scroll=root_scroll,
             expand=True,
         )
+        self._scroll_host = result_pane if self.two_pane else self._root
         return self._root
 
 

@@ -1,7 +1,7 @@
 import flet as ft
 
 from app.localization.localization import Localization
-from app.pages.calculate import CalculationPage
+from app.pages.calculate import CalculationPage, is_two_pane
 from app.pages.home import HomePage
 
 
@@ -56,6 +56,16 @@ async def main(page: ft.Page):
         calc.restore_state(state)
         show_content(root)
         page.update()
+
+    def on_page_resize(e):
+        if (
+            screen["name"] == "calc"
+            and calc is not None
+            and calc.two_pane != is_two_pane(getattr(page, "width", None))
+        ):
+            refresh_calculate()
+
+    page.on_resize = on_page_resize
 
     home.on_calculate = show_calculate
     screen["name"] = "home"

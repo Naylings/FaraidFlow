@@ -174,3 +174,35 @@ async def test_appbar_calculate_action_is_reachable_on_a_long_form():
     assert action.tooltip == "Calculate"
     action.on_click(None)
     assert _find_by_key(root, "result-table") is not None
+
+
+async def test_resize_across_the_breakpoint_rebuilds_the_layout():
+    page = FakePage()
+    page.width = 1400
+    await main(page)
+    _find_by_key(page.controls[0], "menu-calculate").on_click(None)
+    assert page.controls[0].scroll is None
+    _find_by_key(page.controls[0], "estate-gross").value = "6000000"
+
+    page.width = 700
+    page.on_resize(None)
+    assert page.controls[0].scroll == ft.ScrollMode.AUTO
+    assert _find_by_key(page.controls[0], "estate-gross").value == "6000000"
+
+    page.width = 1400
+    page.on_resize(None)
+    assert page.controls[0].scroll is None
+    assert _count_by_key(page.controls[0], "estate-gross") == 1, "no duplicated controls"
+    assert _count_by_key(page.controls[0], "btn-calculate") == 1
+    assert _find_by_key(page.controls[0], "estate-gross").value == "6000000"
+
+
+async def test_resize_within_one_mode_does_not_rebuild():
+    page = FakePage()
+    page.width = 1400
+    await main(page)
+    _find_by_key(page.controls[0], "menu-calculate").on_click(None)
+    first = page.controls[0]
+    page.width = 1200
+    page.on_resize(None)
+    assert page.controls[0] is first, "same-mode resize must not rebuild the tree"

@@ -2,7 +2,7 @@ import flet as ft
 
 from app.calculation import estate as estate_mod
 from app.localization.localization import Localization
-from app.pages.calculate import CalculationPage
+from app.pages.calculate import CalculationPage, is_two_pane
 from fakes import FakePage, FakeStorage
 
 
@@ -541,3 +541,53 @@ async def test_wife_count_empty_or_zero_falls_back_to_one():
     for bad in ("", "0", None):
         calc._wife_count.value = bad
         assert calc._slot_from_inputs() == {"wife": 1}
+
+
+async def test_two_pane_mode_scrolls_form_and_results_independently():
+    calc, pg, _ = await _page()
+    pg.width = 1400
+    root = calc.build()
+    assert calc.two_pane is True
+    assert root.scroll is None, "outer container must not scroll in two-pane mode"
+    form = _by_key(root, "col-cards")
+    result = _by_key(root, "pane-result")
+    assert form is not None and result is not None
+    assert form.scroll == ft.ScrollMode.AUTO
+    assert result.scroll == ft.ScrollMode.AUTO
+
+
+async def test_stacked_mode_scrolls_the_outer_container_only():
+    calc, pg, _ = await _page()
+    pg.width = 800
+    root = calc.build()
+    assert calc.two_pane is False
+    assert root.scroll == ft.ScrollMode.AUTO
+    assert _by_key(root, "col-cards").scroll is None
+    assert _by_key(root, "pane-result").scroll is None
+
+
+async def test_two_pane_mode_keeps_the_result_scroll_key_and_scroll_host():
+    calc, pg, _ = await _page()
+    pg.width = 1400
+    root = calc.build()
+    assert isinstance(calc.result_card.key, ft.ScrollKey)
+    assert str(calc.result_card.key) == "result-card"
+    assert calc._scroll_host is _by_key(root, "pane-result")
+    assert _by_key(root, "btn-calculate") is not None
+    assert _by_key(root, "back-home") is not None
+
+
+async def test_stacked_mode_scroll_host_is_the_root_container():
+    calc, pg, _ = await _page()
+    pg.width = 800
+    root = calc.build()
+    assert calc._scroll_host is root
+    assert calc._scroll_host is not _by_key(root, "pane-result")
+
+
+async def test_is_two_pane_treats_unset_width_as_stacked():
+    assert is_two_pane(None) is False
+    assert is_two_pane(0) is False
+    assert is_two_pane(991) is False
+    assert is_two_pane(992) is True
+    assert is_two_pane(1400) is True

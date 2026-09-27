@@ -448,3 +448,96 @@ from the Calculate screen today because `main.build_appbar()` always passes
 (`def build_appbar(self, on_change=None) -> ft.AppBar:`); revert `main.build_appbar()` to
 `return home.build_appbar(on_change=on_language_changed)`. The in-form button is
 untouched, so nothing else needs reverting.
+
+### 14. Results panel stays visible while the form scrolls (desktop only)
+
+**Files:** `src/app/pages/calculate.py`, `src/main.py`, `tests/fakes.py`,
+`tests/test_calculate_page.py`, `tests/test_main_integration.py`
+**Change:** `build()` now selects one of two layout modes from the viewport width. New
+module constant `TWO_PANE_MIN_WIDTH = 992` and `is_two_pane(width)`; `CalculationPage.two_pane`
+is computed in `__init__` and recomputed at the top of `build()`. A new key `pane-result`
+sits on the results pane in both modes, and `CalculationPage._scroll_host` records which
+container owns `result-card` for the auto-scroll.
+
+**Two-pane mode (width >= 992):** the panes become an `ft.Row` instead of an
+`ft.ResponsiveRow`. The root column has `scroll=None` and each pane has
+`scroll=ft.ScrollMode.AUTO`, `expand=1`, with `vertical_alignment=ft.CrossAxisAlignment.STRETCH`
+on the row. The form and the results scroll independently and the results never leave the
+viewport. `expand=1` splits the row's horizontal main axis evenly — the same 6/6 split the
+`ResponsiveRow` gave before — and the row's `STRETCH` cross-axis alignment is what bounds each
+pane's *height*, without which the panes would size to their content and the inner scroll
+would never engage.
+
+**Stacked mode (width < 992):** the previous layout, unchanged — an `ft.ResponsiveRow` with
+`col={"sm": 12, "lg": 6}` panes, neither pane scrollable nor expanded, and the root column
+doing all the scrolling. The one difference from before is that the results column gained
+`key="pane-result"`; nothing else about it moved.
+
+`main.on_page_resize` is registered on `page.on_resize` and calls the existing
+`refresh_calculate()` **only when the mode actually changes**, so ordinary resizes cost
+nothing. A rebuild is required because the two modes build structurally different trees —
+an `ft.Row` with `expand=1` and `STRETCH` versus an `ft.ResponsiveRow` with `col={...}` —
+and no property assignment can swap one for the other. (An earlier draft of this entry
+gave a different reason: that `scroll` and `height` are construction-time properties in
+Flet 1.0.1. That is not true — both are ordinary assignable attributes, verified by
+assignment against the installed runtime. The structural difference is the real reason.)
+Because it reuses `refresh_calculate()`, input state and the computed result survive a mode
+change: `restore_state()` re-reads the restored inputs, and the result survives because
+`self.result_card` is created once in `__init__` and `build()` reuses that same object
+rather than making a new one.
+
+`_scroll_to_result` now scrolls `CalculationPage._scroll_host` — the results pane in two-pane
+mode, the root in stacked mode — instead of always the root. The `ScrollKey` is unchanged.
+The host is recorded at build time because scrolling a non-scrollable control is what would
+have broken this.
+
+**Why:** form and results were both children of one scroll container, so scrolling a long
+form pushed the whole results panel off-screen. This happens on desktop too, as soon as the
+form is taller than the viewport.
+
+**The subtlety, and why the root stops scrolling:** the goal is two *independent* scroll
+regions, not nested scroll. If the outer container also scrolled, the result would be
+genuine nesting — the classic touch trap where a vertical swipe aimed at the form gets
+captured by an inner region and the user cannot reach the results below it. At desktop width
+the outer container therefore does not scroll at all, and the two scrolling regions are
+siblings rather than nested; below the breakpoint the outer container is the only scroll
+region, which is the natural phone flow. This is the one property in this item that unit
+tests cannot fully demonstrate, because `FakePage` has no viewport and no touch input — it
+needs the manual pass.
+
+**Safety / risk:** this is the only structural change in the round and the only medium-risk
+item. Mitigations: `key="col-cards"` and `key=ft.ScrollKey("result-card")` are preserved and
+asserted reachable in both modes; the results table is untouched and remains an `ft.Column`
+of `ft.Row`s; no calculation code changed. `tests/fakes.py` gained `FakePage.width = 800`, so
+the default in every test is stacked mode — the previous behaviour — which is why no existing
+test needed editing. The auto-scroll is *not* covered by a test: `scroll_to()` raises
+`RuntimeError: Control must be added to the page first` against an unattached control, so
+neither the old root-scrolling path nor the new pane-scrolling path can be exercised
+headlessly. That is a pre-existing limitation, not one introduced here.
+
+**Tests added:** `test_two_pane_mode_scrolls_form_and_results_independently`,
+`test_stacked_mode_scrolls_the_outer_container_only`,
+`test_two_pane_mode_keeps_the_result_scroll_key_and_scroll_host`,
+`test_resize_across_the_breakpoint_rebuilds_the_layout`, plus three added because the
+requirements they cover had no test at all:
+`test_stacked_mode_scroll_host_is_the_root_container` (the brief's tests only covered the
+two-pane scroll host, though stacked mode is the path every other test exercises),
+`test_is_two_pane_treats_unset_width_as_stacked` (`is_two_pane` must tolerate `page.width`
+being unset or `0` before the client reports a size), and
+`test_resize_within_one_mode_does_not_rebuild` (the mode-change guard is what keeps
+ordinary resizes free, and nothing would have caught its removal).
+
+**Revert:** in `build()`, delete the `if self.two_pane:` branch and keep only the
+`ft.ResponsiveRow` construction with `scroll=ft.ScrollMode.AUTO` on the root; restore
+`_scroll_to_result` to
+`if self._root is not None: await self._root.scroll_to(scroll_key="result-card", duration=400)`;
+delete `TWO_PANE_MIN_WIDTH`, `is_two_pane`, `self.two_pane` and `self._scroll_host`; delete
+`on_page_resize` **and** the `page.on_resize = on_page_resize` assignment from `src/main.py`
+and revert its import to `from app.pages.calculate import CalculationPage` — omitting the
+import leaves a dangling `is_two_pane` reference and the app will not start; drop
+`self.width = 800` from `FakePage`. The seven new tests then fail and must be deleted with
+it.
+
+**Not done — manual verification pending.** Unit tests cannot show a double scrollbar, a
+gesture trap, or a layout that overflows. See Round 6's manual pass below; this item is not
+complete until that pass is recorded.
