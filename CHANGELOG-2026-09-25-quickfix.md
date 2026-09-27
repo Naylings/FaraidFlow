@@ -350,9 +350,10 @@ different x-position — a visible staircase between a short label ("Son") and a
 
 **Safety:** display-only; no parsing or calculation change. `no_wrap` plus ellipsis
 means a label that does not fit 150px truncates instead of pushing its input right. The
-longest label in either language (`Anak perempuan`, 14 characters) fits inside 150px at
-the default text size, so no truncation is expected — confirmed by hand at the narrowest
-supported width in the Round 6 manual pass.
+longest labels are 16 characters ("Paternal brother", "Maternal brother") in English and
+15 ("Saudara kandung", "Saudari kandung") in Indonesian; the Round 6 manual pass at the
+narrowest supported width showed no truncation, so 150px is not expected to clip any of
+them.
 
 **Tests added:** `test_every_heir_label_sits_in_a_fixed_width_column`.
 
