@@ -118,7 +118,8 @@ async def test_appbar_calculate_action_exists_only_on_the_calculate_screen():
     _find_by_key(page.controls[0], "menu-calculate").on_click(None)
     action = _appbar_action(page, "appbar-calculate")
     assert action is not None
-    assert page.appbar.actions[1] is action, "language button must stay at index 0"
+    assert page.appbar.actions[0].key == "lang-button", "language button must stay at index 0"
+    assert page.appbar.actions[1] is action
     _find_by_key(page.controls[0], "back-home").on_click(None)
     assert _appbar_action(page, "appbar-calculate") is None
 
@@ -130,12 +131,15 @@ async def test_appbar_calculate_action_matches_the_in_form_button():
     root = page.controls[0]
     _find_by_key(root, "estate-gross").value = "6000000"
     _find_first(root, ft.RadioGroup).value = "husband"
-    _appbar_action(page, "appbar-calculate").on_click(None)
-    assert _find_by_key(root, "result-table") is not None
+    action = _appbar_action(page, "appbar-calculate")
     # the in-form button is preserved and still the same sync handler
     in_form = _find_by_key(root, "btn-calculate")
     assert in_form is not None
+    assert in_form.on_click == action.on_click
+    assert _find_by_key(root, "result-table") is None
     in_form.on_click(None)
+    assert _find_by_key(root, "result-table") is not None
+    action.on_click(None)
     assert _find_by_key(root, "result-table") is not None
 
 
@@ -143,9 +147,13 @@ async def test_appbar_calculate_action_survives_a_language_switch():
     page = FakePage()
     await main(page)
     _find_by_key(page.controls[0], "menu-calculate").on_click(None)
+    before = _appbar_action(page, "appbar-calculate")
+    assert before.tooltip == "Calculate"
     await _pick_language_id(page)
     action = _appbar_action(page, "appbar-calculate")
     assert action is not None
+    assert action is not before, "AppBar must be rebuilt, not retained, across the switch"
+    assert action.tooltip == "Hitung"
     root = page.controls[0]
     _find_by_key(root, "estate-gross").value = "6000000"
     _find_first(root, ft.RadioGroup).value = "husband"

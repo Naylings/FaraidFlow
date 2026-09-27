@@ -427,11 +427,15 @@ call the identical handler, so they cannot diverge.
 **Safety:** no new localization key — the tooltip reuses `calc.calculate` (present in both
 `en.py:38` and `id.py:38`). No calculation change. `key="btn-calculate"` and its sync
 handler are untouched (an integration test invokes `.on_click(None)` synchronously). The
-language button stays at `page.appbar.actions[0]` because five existing test functions
+language button stays at `page.appbar.actions[0]` because six existing test functions
 across `tests/test_home_page.py` and `tests/test_main_integration.py` — plus the shared
 `_pick_language_id` helper — index it positionally; the new action is at index 1. The
-AppBar is rebuilt inside both `refresh_calculate()` and `show_home()`, so the action is
-recreated on every language switch and navigation and can never be a stale closure.
+AppBar is reassigned at all three call sites — `main()` startup, `refresh_calculate()` and
+`show_home()` — so the action is recreated on every language switch and navigation and can
+never be a stale closure. The one rebuild path that does *not* pass `extra_actions` is
+`HomePage.refresh()`, which calls `build_appbar()` with no arguments; it is unreachable
+from the Calculate screen today because `main.build_appbar()` always passes
+`on_change=on_language_changed` rather than relying on that default.
 
 **Tests added:** `test_appbar_calculate_action_exists_only_on_the_calculate_screen`,
 `test_appbar_calculate_action_matches_the_in_form_button`,
