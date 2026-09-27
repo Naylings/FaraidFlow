@@ -269,6 +269,35 @@ async def test_amounts_display_with_dollar_and_two_decimals():
     assert any("$" in v for v in cells)
 
 
+async def test_share_column_shows_group_share_not_per_person_share():
+    # Wife + 2 sons: wife 1/8, sons share 7/8 between them.
+    # The row is labelled "Son x2" and its Total is the whole group total,
+    # so the Share cell must be the group share (7/8), not the per-person 7/16.
+    calc, pg, _ = await _page()
+    calc.heirs = {"wife": 1, "son": 2}
+    calc.estate = estate_mod.Estate(gross=1000)
+    calc._compute()
+    table = _by_key(calc._build_result(), "result-table")
+    rows = {r.controls[0].value: [c.value for c in r.controls] for r in table.controls[2:]}
+    assert rows["Son  x2"][1] == "7/8"
+    assert rows["Wife"][1] == "1/8"
+    # per-person share 7/16 must not leak into the table
+    assert all(v[1] != "7/16" for v in rows.values())
+
+
+async def test_share_column_matches_total_column_basis_for_groups():
+    calc, pg, _ = await _page()
+    calc.heirs = {"son": 3}
+    calc.estate = estate_mod.Estate(gross=9000)
+    calc._compute()
+    table = _by_key(calc._build_result(), "result-table")
+    row = [c.value for c in table.controls[2].controls]
+    # group share 1 -> share cell "1", each 3000, total 9000
+    assert row[1] == "1"
+    assert row[2] == "$3,000.00"
+    assert row[3] == "$9,000.00"
+
+
 async def test_result_table_cells_expand_to_fill_container():
     calc, pg, _ = await _page()
     calc.heirs = {"son": 2, "daughter": 1}

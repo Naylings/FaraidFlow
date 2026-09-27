@@ -242,6 +242,60 @@ tests were added:
 block with the previous `ft.DataTable(key="result-table", columns=..., rows=...)`
 construction, and restore the three tests to read `table.columns` / `ft.DataCell`.
 
+---
+
+## Round 5 — Share column basis bug (group vs per-person)
+
+Base: commit `7b58aab`.
+
+### 9. Share column showed per-person share while Total showed group total
+
+**File:** `src/app/pages/calculate.py`
+**Change:** one line in `_build_result` — the Share cell now renders the **group**
+share instead of the per-person share:
+
+    - _cell(_fmt_num(row.share), ...)
+    + _cell(_fmt_num(row.share * row.count), ...)
+
+**The bug:** for a row representing several heirs of one type, the table mixed two
+different bases in the same row. Example (wife + 2 sons, net 1000):
+
+| Column | Before | Basis |
+|---|---|---|
+| Share | `7/16` | per person |
+| Each | `$437.50` | per person |
+| Total | `$875.00` | **whole group** |
+
+So the row was labelled `Son x2` and its Total was 7/8 of the estate, yet the Share
+cell said 7/16. The "Calculation details" panel was already correct (it shows
+`Son x2: 7/8 = 7/8`), which made the two panels appear to contradict each other.
+
+**After:**
+
+| Column | Value | Basis |
+|---|---|---|
+| Heir | `Son  x2` | group |
+| Share | `7/8` | **group** — matches Total |
+| Each | `$437.50` | per person |
+| Total | `$875.00` | group |
+
+**Note: the underlying calculation was always correct** and was not changed. Only the
+displayed fraction was wrong. The per-person split is still fully visible in the
+`Each` column, which is its purpose.
+
+**Safety:** display-only; `row.share` itself is untouched, so the engine, the details
+panel, and the tests that assert on `Row.share` are unaffected. Verified with a fuzz
+run over ~16,700 random heir/estate combinations: the displayed group shares sum to
+exactly 1 in every case.
+
+**Tests added** (`tests/test_calculate_page.py`):
+- `test_share_column_shows_group_share_not_per_person_share` — the reported wife +
+  2 sons case; asserts the cell reads `7/8` and that `7/16` never appears
+- `test_share_column_matches_total_column_basis_for_groups` — 3 sons case
+
+**Revert:** change `_fmt_num(row.share * row.count)` back to `_fmt_num(row.share)` in the
+Share cell of `_build_result`.
+
 ## Untracked / stray files
 - `main.py` (repo root, content was the single character `f`) was DELETED. It was
   accidental and untracked; it is not part of the app (`src/main.py` is the real entry

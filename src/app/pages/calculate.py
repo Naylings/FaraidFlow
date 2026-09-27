@@ -230,7 +230,7 @@ class CalculationPage:
                         t2(row.key) + (f"  x{row.count}" if row.count > 1 else ""),
                         weights[0][1],
                     ),
-                    _cell(_fmt_num(row.share), weights[1][1], numeric=True),
+                    _cell(_fmt_num(row.share * row.count), weights[1][1], numeric=True),
                 ]
                 if show_each:
                     cells.append(_cell(_money(row.each, t2), weights[2][1], numeric=True))
