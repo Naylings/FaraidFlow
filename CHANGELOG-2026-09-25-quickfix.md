@@ -336,3 +336,26 @@ covered by a new test.
 `test_untouched_form_with_zero_counts_shows_no_heirs_error`.
 
 **Revert:** change `value="0"` back to `value=""` in `_count_field` (~line 437).
+
+### 11. Heir labels get a fixed 150px column
+
+**Files:** `src/app/pages/calculate.py`, `tests/test_calculate_page.py`
+**Change:** heir labels moved from a bare `ft.Text(t(k))` to `_label(t(k))`, a helper
+that sets `width=LABEL_WIDTH` (150), `no_wrap=True` and
+`overflow=ft.TextOverflow.ELLIPSIS`. New module constant `LABEL_WIDTH = 150`.
+
+**Why:** `ft.Text` with no width sizes to its own content, so every input started at a
+different x-position — a visible staircase between a short label ("Son") and a long one
+("Paternal brother"). A fixed label column puts every input on one vertical axis.
+
+**Safety:** display-only; no parsing or calculation change. `no_wrap` plus ellipsis
+means a label that does not fit 150px truncates instead of pushing its input right. The
+longest label in either language (`Anak perempuan`, 14 characters) fits inside 150px at
+the default text size, so no truncation is expected — confirmed by hand at the narrowest
+supported width in the Round 6 manual pass.
+
+**Tests added:** `test_every_heir_label_sits_in_a_fixed_width_column`.
+
+**Revert:** in `build()`, change `_label(t(k))` back to `ft.Text(t(k))` and delete
+`LABEL_WIDTH` / `_label()`. Note Task 12's `_heir_field_row()` also calls `_label()` —
+revert that call too.

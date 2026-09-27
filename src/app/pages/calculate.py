@@ -46,6 +46,18 @@ def _equivalence_lines(rows) -> list[str]:
     return out
 
 
+LABEL_WIDTH = 150
+
+
+def _label(text: str) -> ft.Text:
+    return ft.Text(
+        text,
+        width=LABEL_WIDTH,
+        no_wrap=True,
+        overflow=ft.TextOverflow.ELLIPSIS,
+    )
+
+
 class CalculationPage:
     def __init__(self, page, localization: Localization, back_home=None):
         self.page = page
@@ -393,7 +405,7 @@ class CalculationPage:
                     ft.Column([
                         ft.Text(t(f"calc.{section}"), size=13),
                         *[
-                            ft.Row([ft.Text(t(k)), self._count_fields[k]])
+                            ft.Row([_label(t(k)), self._count_fields[k]])
                             for k in keys
                             if k in self._count_fields
                         ],

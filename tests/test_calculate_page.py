@@ -257,6 +257,18 @@ async def test_heir_counts_prefilled_with_zero_like_the_estate_fields():
         assert _by_key(root, key).value == "0", key
 
 
+async def test_every_heir_label_sits_in_a_fixed_width_column():
+    calc, pg, loc = await _page()
+    root = calc.build()
+    wanted = {loc.get(k) for k in HEIR_COUNT_KEYS}
+    labels = {c.value: c for c in _walk(root) if isinstance(c, ft.Text) and c.value in wanted}
+    assert set(labels) == wanted, "every count-field heir must render exactly one label"
+    for text in labels.values():
+        assert text.width == 150, text.value
+        assert text.no_wrap is True, text.value
+        assert text.overflow == ft.TextOverflow.ELLIPSIS, text.value
+
+
 async def test_untouched_form_with_zero_counts_shows_no_heirs_error():
     calc, pg, _ = await _page()
     calc.build()
