@@ -19,6 +19,9 @@ env/
 /.superpowers/
 docs/superpowers/
 
+# Isolated implementation worktrees
+/.worktrees/
+
 # Flet
 .flet/
 build/
