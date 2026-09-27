@@ -434,7 +434,7 @@ def _count_field(key, t, show_label=True):
     return ft.TextField(
         key=f"count-{key}",
         label=t(key) if show_label else None,
-        value="",
+        value="0",
         width=110,
         keyboard_type=ft.KeyboardType.NUMBER,
         input_filter=ft.NumbersOnlyInputFilter(),

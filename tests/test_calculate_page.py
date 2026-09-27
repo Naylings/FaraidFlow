@@ -237,6 +237,36 @@ async def test_heir_counts_are_number_fields_not_dropdowns():
         assert not isinstance(field, ft.Dropdown)
 
 
+HEIR_COUNT_KEYS = (
+    "son", "daughter",
+    "brother_full", "sister_full",
+    "brother_consang", "sister_consang",
+    "brother_uterine", "sister_uterine",
+)
+
+
+async def test_heir_counts_prefilled_with_zero_like_the_estate_fields():
+    calc, pg, _ = await _page()
+    root = calc.build()
+    for key in HEIR_COUNT_KEYS:
+        field = _by_key(root, f"count-{key}")
+        assert field is not None, key
+        assert field.value == "0", key
+    # the estate block already defaulted to "0"; the form must now match it
+    for key in ("estate-gross", "estate-funeral", "estate-debts", "estate-wasiat"):
+        assert _by_key(root, key).value == "0", key
+
+
+async def test_untouched_form_with_zero_counts_shows_no_heirs_error():
+    calc, pg, _ = await _page()
+    calc.build()
+    calc._collect()
+    calc._compute()
+    assert calc.calc_result.errors == ["calc.errors.no_heirs"]
+    assert calc.calc_result.rows == []
+    assert calc._wife_count.value == "1"
+
+
 async def test_each_column_hidden_when_all_single():
     calc, pg, _ = await _page()
     calc.heirs = {"son": 1}

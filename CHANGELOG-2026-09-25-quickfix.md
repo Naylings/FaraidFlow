@@ -303,3 +303,36 @@ Share cell of `_build_result`.
 - `docs/hukum_waris_islam_indonesia_baznas_dan_makkah.md` — a research/reference doc.
   Left UNTRACKED and NOT pushed, at the user's request. It is intentionally not part of
   this feature.
+
+---
+
+## Round 6 — Calculate page layout redesign (2026-09-27)
+
+Spec: `docs/superpowers/specs/2026-09-27-calculate-page-layout-design.md`.
+Plan: `docs/superpowers/plans/2026-09-27-calculate-page-layout.md`.
+Base commit: `842fbf3`. Layout and micro-UX only — no calculation logic changed.
+
+### 10. Heir count fields pre-filled with `0`
+
+**Files:** `src/app/pages/calculate.py`, `tests/test_calculate_page.py`
+**Change:** `_count_field()` creates count `TextField`s with `value="0"` instead of
+`value=""`. The four estate fields already defaulted to `"0"`, so the form was
+internally inconsistent — money fields showed `0`, heir fields directly below them
+showed blanks.
+
+**Why:** consistency within one form. Blanks under pre-filled money fields read as an
+incomplete or buggy state.
+
+**Safety:** no calculation path changes. `Estate.has_numbers` is `gross > 0`, which is
+about the *estate*, not heir counts, so pre-filling counts to `0` does not affect it.
+`_count_of()` returns `0` for both `""` and `"0"`, and `_slot_from_inputs()` skips
+falsy counts, so the two are indistinguishable downstream. `0` legitimately still means
+"this heir type is absent" — that meaning is preserved, not removed. The wife control
+is a 1–4 `ft.Dropdown` and still defaults to `"1"`; it is an enum, not a free count.
+A form left completely untouched now shows the `calc.errors.no_heirs` state, which is
+covered by a new test.
+
+**Tests added:** `test_heir_counts_prefilled_with_zero_like_the_estate_fields`,
+`test_untouched_form_with_zero_counts_shows_no_heirs_error`.
+
+**Revert:** change `value="0"` back to `value=""` in `_count_field` (~line 437).
