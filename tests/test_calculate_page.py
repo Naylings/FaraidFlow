@@ -245,7 +245,7 @@ async def test_each_column_hidden_when_all_single():
     result = calc._build_result()
     table = _by_key(result, "result-table")
     assert table is not None
-    headers = [c.label.value for c in table.columns]
+    headers = [c.value for c in table.controls[0].controls]
     assert "Each" not in headers
 
 
@@ -255,7 +255,7 @@ async def test_each_column_shown_when_multiple():
     calc.estate = estate_mod.Estate(gross=90000000)
     calc._compute()
     table = _by_key(calc._build_result(), "result-table")
-    headers = [c.label.value for c in table.columns]
+    headers = [c.value for c in table.controls[0].controls]
     assert headers[-3:] == ["Share", "Each", "Total"]
 
 
@@ -264,8 +264,40 @@ async def test_amounts_display_with_dollar_and_two_decimals():
     calc.heirs = {"daughter": 1}
     calc.estate = estate_mod.Estate(gross=100)
     calc._compute()
-    cells = [c.content.value for c in _walk(calc._build_result()) if isinstance(c, ft.DataCell)]
+    table = _by_key(calc._build_result(), "result-table")
+    cells = [c.value for row in table.controls[2:] for c in row.controls]
     assert any("$" in v for v in cells)
+
+
+async def test_result_table_cells_expand_to_fill_container():
+    calc, pg, _ = await _page()
+    calc.heirs = {"son": 2, "daughter": 1}
+    calc.estate = estate_mod.Estate(gross=100)
+    calc._compute()
+    table = _by_key(calc._build_result(), "result-table")
+    assert table is not None
+    for row in table.controls:
+        if not isinstance(row, ft.Row):
+            continue
+        assert all(c.expand for c in row.controls), "every cell must expand"
+    assert sum(c.expand for c in table.controls[0].controls) > 0
+
+
+async def test_result_table_expands_with_and_without_each_column():
+    calc, pg, _ = await _page()
+    calc.estate = estate_mod.Estate(gross=100)
+    calc.heirs = {"son": 2}
+    calc._compute()
+    with_each = _by_key(calc._build_result(), "result-table")
+    calc.heirs = {"son": 1}
+    calc._compute()
+    without_each = _by_key(calc._build_result(), "result-table")
+    assert len(with_each.controls[0].controls) == 4
+    assert len(without_each.controls[0].controls) == 3
+    for table in (with_each, without_each):
+        assert all(c.expand for c in table.controls[0].controls)
+        for row in table.controls[2:]:
+            assert all(c.expand for c in row.controls)
 
 
 async def test_debt_note_only_when_unpaid():

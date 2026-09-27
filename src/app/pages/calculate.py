@@ -201,29 +201,48 @@ class CalculationPage:
         if r.rows:
             t2 = self.loc.get
             show_each = any(row.count > 1 for row in r.rows)
-            columns = [
-                ft.DataColumn(ft.Text(t2("calc.col_heir")), expand=2),
-                ft.DataColumn(ft.Text(t2("calc.col_share")), expand=1),
-            ]
+            weights = [("calc.col_heir", 3), ("calc.col_share", 2)]
             if show_each:
-                columns.append(ft.DataColumn(ft.Text(t2("calc.col_each")), expand=2))
-            columns.append(ft.DataColumn(ft.Text(t2("calc.col_total")), expand=2))
-            rows = [
-                ft.DataRow(cells=[
-                    ft.DataCell(ft.Text(t2(row.key) + (f"  x{row.count}" if row.count > 1 else ""))),
-                    ft.DataCell(ft.Text(_fmt_num(row.share))),
-                    *([ft.DataCell(ft.Text(_money(row.each, t2)))] if show_each else []),
-                    ft.DataCell(ft.Text(_money(row.amount, t2) if row.amount is not None else "-")),
-                ])
-                for row in r.rows
-            ]
-            blocks.append(
-                ft.DataTable(
-                    key="result-table",
-                    columns=columns,
-                    rows=rows,
+                weights.append(("calc.col_each", 2))
+            weights.append(("calc.col_total", 2))
+
+            def _cell(value, weight, bold=False, numeric=False):
+                return ft.Text(
+                    value,
+                    size=12,
+                    weight=ft.FontWeight.BOLD if bold else None,
+                    expand=weight,
+                    text_align=ft.TextAlign.RIGHT if numeric else ft.TextAlign.LEFT,
+                    no_wrap=True,
+                    overflow=ft.TextOverflow.ELLIPSIS,
                 )
-            )
+
+            table_rows = [
+                ft.Row(
+                    [_cell(t2(key), w, bold=True, numeric=idx > 0) for idx, (key, w) in enumerate(weights)],
+                    spacing=8,
+                ),
+                ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT),
+            ]
+            for row in r.rows:
+                cells = [
+                    _cell(
+                        t2(row.key) + (f"  x{row.count}" if row.count > 1 else ""),
+                        weights[0][1],
+                    ),
+                    _cell(_fmt_num(row.share), weights[1][1], numeric=True),
+                ]
+                if show_each:
+                    cells.append(_cell(_money(row.each, t2), weights[2][1], numeric=True))
+                cells.append(
+                    _cell(
+                        _money(row.amount, t2) if row.amount is not None else "-",
+                        weights[-1][1],
+                        numeric=True,
+                    )
+                )
+                table_rows.append(ft.Row(cells, spacing=8))
+            blocks.append(ft.Column(table_rows, key="result-table", spacing=6))
             blocks.append(self._build_breakdown())
             blocks.append(self._build_notes())
             blocks.append(self._build_details(r))

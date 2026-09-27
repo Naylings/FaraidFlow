@@ -195,6 +195,53 @@ still has no hard cap on the wife count (the `min(..., 4)` clamp in
 **Revert:** replace the `ft.Dropdown(...)` assigned to `self._wife_count` in `build()`
 with `self._wife_count = _count_field("wife", t)`.
 
+---
+
+## Round 4 — result table fills its container width
+
+Base: commit `a1c5818`.
+
+### 8. Result table rebuilt from Rows so it actually fills the width
+
+**Files:** `src/app/pages/calculate.py`, `tests/test_calculate_page.py`
+**Change:** the result table was converted from `ft.DataTable` to a `ft.Column` of
+`ft.Row`s (header row, divider, one row per heir). Every cell is an `ft.Text` with an
+`expand` weight, so the row always fills the full width of its container regardless of
+how many columns are present. Column weights are Heir=3, Share=2, Each=2, Total=2.
+
+Also included: numeric columns (Share/Each/Total) are right-aligned, the header is bold,
+and cells use `no_wrap=True` with `TextOverflow.ELLIPSIS` so a long heir name or a very
+large amount degrades to an ellipsis instead of breaking the layout.
+
+**Why — and a correction to an earlier claim:** an earlier round (commit `ac3d20c`)
+claimed the "empty space" was fixed by adding `expand` to each `ft.DataColumn`. **That
+fix did nothing.** Flet confirms Flutter's built-in `DataTable`/`DataColumn` has no
+width or flex property, so columns auto-size to their content and the `expand` value on
+a `DataColumn` is silently ignored. `ft.Table` and `FlexColumnWidth` do not exist in
+flet 1.0.1, and the `flet-datatable2` extension (which does support per-column widths)
+is not installed. Rows with `expand` are the only reliable way to get proportional
+column widths with the controls available here.
+
+Source: flet discussion [#6418](https://github.com/flet-dev/flet/discussions/6418)
+("Flutter's built-in `DataColumn` has no `width` property, so `ft.DataTable` has nothing
+to plumb through. Columns auto-size to content, and that's it.").
+
+**Safety:** the table is display-only — no calculation or data change. The
+`key="result-table"` is preserved, so `page.find`-style lookups and the existing
+integration tests still work. The header order (Heir, Share, [Each], Total) is
+unchanged.
+
+**Tests updated/added** (`tests/test_calculate_page.py`): the three existing table tests
+now read cells from the Row structure instead of `DataColumn`/`DataCell`, and two new
+tests were added:
+- `test_result_table_cells_expand_to_fill_container` — every cell has an `expand` weight
+- `test_result_table_expands_with_and_without_each_column` — verifies the 4-column and
+  3-column layouts both expand every cell
+
+**Revert:** in `_build_result`, replace the `ft.Column(table_rows, key="result-table", ...)`
+block with the previous `ft.DataTable(key="result-table", columns=..., rows=...)`
+construction, and restore the three tests to read `table.columns` / `ft.DataCell`.
+
 ## Untracked / stray files
 - `main.py` (repo root, content was the single character `f`) was DELETED. It was
   accidental and untracked; it is not part of the app (`src/main.py` is the real entry
