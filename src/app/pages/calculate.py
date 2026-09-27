@@ -58,6 +58,10 @@ def _label(text: str) -> ft.Text:
     )
 
 
+def _pairs(keys):
+    return [tuple(keys[i:i + 2]) for i in range(0, len(keys), 2)]
+
+
 class CalculationPage:
     def __init__(self, page, localization: Localization, back_home=None):
         self.page = page
@@ -339,6 +343,12 @@ class CalculationPage:
         else:
             loop.create_task(self._scroll_to_result())
 
+    def _heir_field_row(self, key) -> ft.Row:
+        t = self.loc.get
+        if key in self._parent_checkboxes:
+            return ft.Row([self._parent_checkboxes[key]], col={"sm": 12, "md": 6})
+        return ft.Row([_label(t(key)), self._count_fields[key]], col={"sm": 12, "md": 6})
+
     def build(self):
         t = self.loc.get
         self._spouse = ft.RadioGroup(
@@ -405,14 +415,12 @@ class CalculationPage:
                     ft.Column([
                         ft.Text(t(f"calc.{section}"), size=13),
                         *[
-                            ft.Row([_label(t(k)), self._count_fields[k]])
-                            for k in keys
-                            if k in self._count_fields
-                        ],
-                        *[
-                            ft.Row([self._parent_checkboxes[k]])
-                            for k in keys
-                            if k in self._parent_checkboxes
+                            ft.ResponsiveRow(
+                                [self._heir_field_row(k) for k in pair],
+                                spacing=8,
+                                run_spacing=8,
+                            )
+                            for pair in _pairs(keys)
                         ],
                     ])
                     for section, keys in heirs.HEIR_SECTIONS

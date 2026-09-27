@@ -269,6 +269,58 @@ async def test_every_heir_label_sits_in_a_fixed_width_column():
         assert text.overflow == ft.TextOverflow.ELLIPSIS, text.value
 
 
+def _paired_rows(root):
+    """Map a sorted (first, second) heir-key tuple to the ResponsiveRow holding it."""
+    wanted = {f"count-{k}" for k in HEIR_COUNT_KEYS}
+    found = {}
+    for control in _walk(root):
+        if not isinstance(control, ft.ResponsiveRow):
+            continue
+        keys = {
+            c.key[len("count-"):]
+            for c in _walk(control)
+            # result_card carries an unhashable ft.ScrollKey; only string keys count
+            if isinstance(getattr(c, "key", None), str) and c.key in wanted
+        }
+        if len(keys) == 2:
+            found[tuple(sorted(keys))] = control
+    return found
+
+
+async def test_heir_fields_are_paired_two_up_in_a_responsive_row():
+    calc, pg, _ = await _page()
+    root = calc.build()
+    pairs = _paired_rows(root)
+    assert set(pairs) == {
+        ("daughter", "son"),
+        ("brother_full", "sister_full"),
+        ("brother_consang", "sister_consang"),
+        ("brother_uterine", "sister_uterine"),
+    }, sorted(pairs)
+    for keys, row in pairs.items():
+        assert len(row.controls) == 2, keys
+        for cell in row.controls:
+            assert cell.col == {"sm": 12, "md": 6}, keys
+
+
+async def test_parent_checkboxes_are_paired_in_a_responsive_row():
+    calc, pg, _ = await _page()
+    root = calc.build()
+    candidates = [
+        r
+        for r in (c for c in _walk(root) if isinstance(c, ft.ResponsiveRow))
+        if {"father", "mother"} <= {
+            c.key for c in _walk(r) if isinstance(getattr(c, "key", None), str)
+        }
+    ]
+    # the page-level ResponsiveRow also contains both, so take the innermost one
+    parent_row = min(candidates, key=lambda r: sum(1 for _ in _walk(r)))
+    assert len(parent_row.controls) == 2
+    for cell in parent_row.controls:
+        assert cell.col == {"sm": 12, "md": 6}
+        assert len([c for c in _walk(cell) if isinstance(c, ft.Checkbox)]) == 1
+
+
 async def test_untouched_form_with_zero_counts_shows_no_heirs_error():
     calc, pg, _ = await _page()
     calc.build()

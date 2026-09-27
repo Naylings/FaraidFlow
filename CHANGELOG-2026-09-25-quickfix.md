@@ -360,3 +360,35 @@ them.
 **Revert:** in `build()`, change `_label(t(k))` back to `ft.Text(t(k))` and delete
 `LABEL_WIDTH` / `_label()`. Note Task 12's `_heir_field_row()` also calls `_label()` —
 revert that call too.
+
+### 12. Heir fields paired two-up in a `ResponsiveRow`
+
+**Files:** `src/app/pages/calculate.py`, `tests/test_calculate_page.py`
+**Change:** the flat per-section list of `ft.Row([label, field])` became one
+`ft.ResponsiveRow` per *pair*, with both cells declaring `col={"sm": 12, "md": 6}`.
+Five paired rows replace ten: Son|Daughter, Father|Mother, Full brother|Full sister,
+Paternal brother|Paternal sister, Maternal brother|Maternal sister. The row construction
+moved into a new `CalculationPage._heir_field_row(key)` helper, and the pairing itself is
+derived from `heirs.HEIR_SECTIONS` by a new `_pairs(keys)` helper (chunks two at a time),
+so the form cannot drift out of sync with the heir model.
+
+**Why:** the form was unnecessarily tall, which is what pushed the Calculate button
+below the fold and made the results panel scroll away. Pairing removes five rows of
+height without adding any interaction.
+
+**Responsive behaviour:** at `md` (768px) and above the two cells sit side by side
+(6 columns each). Below `md` each cell takes all 12 columns and the pair stacks. That
+fallback is the whole point — a 150px label plus two 110px fields is ~370px of fixed
+width and would overflow a phone viewport in a side-by-side arrangement.
+
+**Safety:** display-only. The field objects, their keys, `self._count_fields` and
+`self._parent_checkboxes` are all unchanged, so `_slot_from_inputs()`, count parsing and
+state capture/restore are untouched. The parent checkboxes now share a `ResponsiveRow`
+like everything else; they were previously one-per-row.
+
+**Tests added:** `test_heir_fields_are_paired_two_up_in_a_responsive_row`,
+`test_parent_checkboxes_are_paired_in_a_responsive_row`.
+
+**Revert:** in `build()`, restore the previous section comprehension (two flat lists of
+`ft.Row`s filtered on `k in self._count_fields` / `k in self._parent_checkboxes`) and
+delete `_pairs()` / `_heir_field_row()`. No other file references them.
