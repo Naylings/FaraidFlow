@@ -349,6 +349,14 @@ class CalculationPage:
             return ft.Row([self._parent_checkboxes[key]], col={"sm": 12, "md": 6})
         return ft.Row([_label(t(key)), self._count_fields[key]], col={"sm": 12, "md": 6})
 
+    def build_appbar_action(self) -> ft.IconButton:
+        return ft.IconButton(
+            key="appbar-calculate",
+            icon=ft.Icons.CALCULATE,
+            tooltip=self.loc.get("calc.calculate"),
+            on_click=self._on_calculate,
+        )
+
     def build(self):
         t = self.loc.get
         self._spouse = ft.RadioGroup(

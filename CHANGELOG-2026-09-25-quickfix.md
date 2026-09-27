@@ -392,3 +392,54 @@ like everything else; they were previously one-per-row.
 **Revert:** in `build()`, restore the previous section comprehension (two flat lists of
 `ft.Row`s filtered on `k in self._count_fields` / `k in self._parent_checkboxes`) and
 delete `_pairs()` / `_heir_field_row()`. No other file references them.
+
+### 13. Calculate is also an AppBar action
+
+**Files:** `src/app/pages/calculate.py`, `src/app/pages/home.py`, `src/main.py`,
+`tests/test_main_integration.py`
+**Change:** new `CalculationPage.build_appbar_action()` returns an `ft.IconButton` with
+`key="appbar-calculate"`, `icon=ft.Icons.CALCULATE`, `tooltip` = the existing
+`calc.calculate` string, and `on_click=self._on_calculate` — the same handler the in-form
+button uses. `HomePage.build_appbar()` gained an `extra_actions: list | None = None`
+parameter, appended **after** the language button. `main.build_appbar()` supplies
+`[calc.build_appbar_action()]` only while `screen["name"] == "calc"`.
+
+**Why:** the Calculate button sat at the bottom of the form, below both cards, so
+submitting required scrolling to the end of a long form. The AppBar is already persistent
+and always visible, so an action there is permanently reachable with no new positioning
+math and no new framework surface.
+
+**Why an AppBar action and not a FAB.** `page.floating_action_button` does exist in
+Flet 1.0.1 — `BasePage.floating_action_button` is a real read/write property
+(`flet/controls/base_page.py:701`) delegating to the root view, and `ft.FloatingActionButton`
+is exported. An earlier draft of this entry claimed the slot did not exist; that was wrong
+and is corrected here. A FAB was still not chosen: a FAB floats *above* the content, and on
+this page it would sit on top of the tall, scrollable result card and risk covering the
+Total row, whereas an AppBar action occupies reserved chrome and overlaps nothing. A FAB
+also signals a single primary action, which would be misleading here because two triggers
+are kept deliberately. The Stack-overlay alternative was rejected for the usual reason —
+offsets must be recomputed on every resize and keyboard open.
+
+**Both buttons are kept on purpose.** The AppBar action guarantees reachability; the
+in-form `btn-calculate` preserves the conventional submit flow and discoverability. Both
+call the identical handler, so they cannot diverge.
+
+**Safety:** no new localization key — the tooltip reuses `calc.calculate` (present in both
+`en.py:38` and `id.py:38`). No calculation change. `key="btn-calculate"` and its sync
+handler are untouched (an integration test invokes `.on_click(None)` synchronously). The
+language button stays at `page.appbar.actions[0]` because five existing test functions
+across `tests/test_home_page.py` and `tests/test_main_integration.py` — plus the shared
+`_pick_language_id` helper — index it positionally; the new action is at index 1. The
+AppBar is rebuilt inside both `refresh_calculate()` and `show_home()`, so the action is
+recreated on every language switch and navigation and can never be a stale closure.
+
+**Tests added:** `test_appbar_calculate_action_exists_only_on_the_calculate_screen`,
+`test_appbar_calculate_action_matches_the_in_form_button`,
+`test_appbar_calculate_action_survives_a_language_switch`,
+`test_appbar_calculate_action_is_reachable_on_a_long_form`.
+
+**Revert:** delete `CalculationPage.build_appbar_action()`; revert
+`HomePage.build_appbar()` to its previous one-parameter form
+(`def build_appbar(self, on_change=None) -> ft.AppBar:`); revert `main.build_appbar()` to
+`return home.build_appbar(on_change=on_language_changed)`. The in-form button is
+untouched, so nothing else needs reverting.

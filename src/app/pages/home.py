@@ -19,7 +19,7 @@ class HomePage:
         self.on_calculate = on_calculate
         self.body = self.build_body()
 
-    def build_appbar(self, on_change=None) -> ft.AppBar:
+    def build_appbar(self, on_change=None, extra_actions: list | None = None) -> ft.AppBar:
         lang_button = LanguageButton(
             page=self.page,
             localization=self.localization,
@@ -27,7 +27,7 @@ class HomePage:
         )
         return ft.AppBar(
             title=ft.Text(self.localization.get("home.title")),
-            actions=[lang_button.button],
+            actions=[lang_button.button, *(extra_actions or [])],
         )
 
     def build_body(self) -> ft.Column:

@@ -39,6 +39,22 @@ async def _pick_language_id(page):
     await id_tile.on_click(None)
 
 
+def _appbar_action(page, key):
+    for action in page.appbar.actions or []:
+        if getattr(action, "key", None) == key:
+            return action
+    return None
+
+
+def _count_by_key(control, key):
+    total = 0
+    if getattr(control, "key", None) == key:
+        total += 1
+    for c in _children(control):
+        total += _count_by_key(c, key)
+    return total
+
+
 async def test_language_switch_keeps_calculator_and_state():
     page = FakePage()
     await main(page)
@@ -92,4 +108,61 @@ async def test_calculator_result_survives_language_switch():
     assert _find_by_key(calc_root, "result-table") is not None
     await _pick_language_id(page)
     root = page.controls[0]
+    assert _find_by_key(root, "result-table") is not None
+
+
+async def test_appbar_calculate_action_exists_only_on_the_calculate_screen():
+    page = FakePage()
+    await main(page)
+    assert _appbar_action(page, "appbar-calculate") is None
+    _find_by_key(page.controls[0], "menu-calculate").on_click(None)
+    action = _appbar_action(page, "appbar-calculate")
+    assert action is not None
+    assert page.appbar.actions[1] is action, "language button must stay at index 0"
+    _find_by_key(page.controls[0], "back-home").on_click(None)
+    assert _appbar_action(page, "appbar-calculate") is None
+
+
+async def test_appbar_calculate_action_matches_the_in_form_button():
+    page = FakePage()
+    await main(page)
+    _find_by_key(page.controls[0], "menu-calculate").on_click(None)
+    root = page.controls[0]
+    _find_by_key(root, "estate-gross").value = "6000000"
+    _find_first(root, ft.RadioGroup).value = "husband"
+    _appbar_action(page, "appbar-calculate").on_click(None)
+    assert _find_by_key(root, "result-table") is not None
+    # the in-form button is preserved and still the same sync handler
+    in_form = _find_by_key(root, "btn-calculate")
+    assert in_form is not None
+    in_form.on_click(None)
+    assert _find_by_key(root, "result-table") is not None
+
+
+async def test_appbar_calculate_action_survives_a_language_switch():
+    page = FakePage()
+    await main(page)
+    _find_by_key(page.controls[0], "menu-calculate").on_click(None)
+    await _pick_language_id(page)
+    action = _appbar_action(page, "appbar-calculate")
+    assert action is not None
+    root = page.controls[0]
+    _find_by_key(root, "estate-gross").value = "6000000"
+    _find_first(root, ft.RadioGroup).value = "husband"
+    action.on_click(None)
+    assert _find_by_key(root, "result-table") is not None
+    assert _count_by_key(root, "appbar-calculate") == 0  # action lives in the appbar, not the body
+
+
+async def test_appbar_calculate_action_is_reachable_on_a_long_form():
+    page = FakePage()
+    await main(page)
+    _find_by_key(page.controls[0], "menu-calculate").on_click(None)
+    root = page.controls[0]
+    for key in ("brother_full", "brother_uterine"):
+        _find_by_key(root, f"count-{key}").value = "9"
+    _find_by_key(root, "count-son").value = "12"
+    action = _appbar_action(page, "appbar-calculate")
+    assert action.tooltip == "Calculate"
+    action.on_click(None)
     assert _find_by_key(root, "result-table") is not None

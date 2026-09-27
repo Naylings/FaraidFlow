@@ -23,7 +23,10 @@ async def main(page: ft.Page):
         page.update()
 
     def build_appbar():
-        return home.build_appbar(on_change=on_language_changed)
+        extra = None
+        if screen["name"] == "calc" and calc is not None:
+            extra = [calc.build_appbar_action()]
+        return home.build_appbar(on_change=on_language_changed, extra_actions=extra)
 
     def on_language_changed():
         if screen["name"] == "calc" and calc is not None:
