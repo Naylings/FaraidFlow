@@ -17,9 +17,14 @@ class HomePage:
         self.page = page
         self.localization = localization
         self.on_calculate = on_calculate
+        self._extra_actions: list = []
         self.body = self.build_body()
 
     def build_appbar(self, on_change=None, extra_actions: list | None = None) -> ft.AppBar:
+        # remembered so refresh() can rebuild the same bar; without this the
+        # Calculate action would silently vanish on any refresh that relies on
+        # the default on_change (this method is that default).
+        self._extra_actions = list(extra_actions or [])
         lang_button = LanguageButton(
             page=self.page,
             localization=self.localization,
@@ -27,7 +32,7 @@ class HomePage:
         )
         return ft.AppBar(
             title=ft.Text(self.localization.get("home.title")),
-            actions=[lang_button.button, *(extra_actions or [])],
+            actions=[lang_button.button, *self._extra_actions],
         )
 
     def build_body(self) -> ft.Column:
@@ -60,7 +65,7 @@ class HomePage:
 
     def refresh(self) -> None:
         self.body = self.build_body()
-        self.page.appbar = self.build_appbar()
+        self.page.appbar = self.build_appbar(extra_actions=self._extra_actions)
         self.page.clean()
         self.page.add(self.build())
         self.page.update()

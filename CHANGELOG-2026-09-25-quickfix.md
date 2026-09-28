@@ -296,14 +296,6 @@ exactly 1 in every case.
 **Revert:** change `_fmt_num(row.share * row.count)` back to `_fmt_num(row.share)` in the
 Share cell of `_build_result`.
 
-## Untracked / stray files
-- `main.py` (repo root, content was the single character `f`) was DELETED. It was
-  accidental and untracked; it is not part of the app (`src/main.py` is the real entry
-  point). Recoverable from nothing — it held no real content.
-- `docs/hukum_waris_islam_indonesia_baznas_dan_makkah.md` — a research/reference doc.
-  Left UNTRACKED and NOT pushed, at the user's request. It is intentionally not part of
-  this feature.
-
 ---
 
 ## Round 6 — Calculate page layout redesign (2026-09-27)
@@ -335,7 +327,9 @@ covered by a new test.
 **Tests added:** `test_heir_counts_prefilled_with_zero_like_the_estate_fields`,
 `test_untouched_form_with_zero_counts_shows_no_heirs_error`.
 
-**Revert:** change `value="0"` back to `value=""` in `_count_field` (~line 437).
+**Revert:** change `value="0"` back to `value=""` in `_count_field()` in
+`src/app/pages/calculate.py`. (Do not trust a line number here — the file has been
+reflowed several times this round and the function has moved each time.)
 
 ### 11. Heir labels get a fixed 150px column
 
@@ -381,17 +375,26 @@ height without adding any interaction.
 fallback is the whole point — a 150px label plus two 110px fields is ~370px of fixed
 width and would overflow a phone viewport in a side-by-side arrangement.
 
-**Safety:** display-only. The field objects, their keys, `self._count_fields` and
-`self._parent_checkboxes` are all unchanged, so `_slot_from_inputs()`, count parsing and
-state capture/restore are untouched. The parent checkboxes now share a `ResponsiveRow`
-like everything else; they were previously one-per-row.
-
 **Tests added:** `test_heir_fields_are_paired_two_up_in_a_responsive_row`,
 `test_parent_checkboxes_are_paired_in_a_responsive_row`.
 
+**Safety:** display-only, with one behavioural nuance. The field objects, their keys,
+`self._count_fields` and `self._parent_checkboxes` are all unchanged, so
+`_slot_from_inputs()`, count parsing and state capture/restore are untouched. The parent
+checkboxes now share a `ResponsiveRow` like everything else; they were previously
+one-per-row. The old `if k in self._count_fields` / `k in self._parent_checkboxes`
+filters were dropped, so a `HEIR_SECTIONS` key present in neither dict now raises a
+`KeyError` from `_heir_field_row()` at `build()` time instead of being silently skipped.
+That is unreachable today — both dicts are derived from `HEIR_SECTIONS`, so they cannot
+drift — and failing loud is the safer direction, but it is a change in failure mode.
+
 **Revert:** in `build()`, restore the previous section comprehension (two flat lists of
 `ft.Row`s filtered on `k in self._count_fields` / `k in self._parent_checkboxes`) and
-delete `_pairs()` / `_heir_field_row()`. No other file references them.
+delete `_pairs()` / `_heir_field_row()`. No other file references them — but reverting
+`calculate.py` alone leaves `test_heir_fields_are_paired_two_up_in_a_responsive_row` and
+`test_parent_checkboxes_are_paired_in_a_responsive_row` failing, because `_paired_rows()`
+asserts against the paired structure rather than against the helpers. Delete those two
+tests with the change.
 
 ### 13. Calculate is also an AppBar action
 
@@ -433,15 +436,26 @@ which is the shared `_pick_language_id` helper) index it positionally; the new a
 at index 1. The
 AppBar is reassigned at all three call sites — `main()` startup, `refresh_calculate()` and
 `show_home()` — so the action is recreated on every language switch and navigation and can
-never be a stale closure. The one rebuild path that does *not* pass `extra_actions` is
-`HomePage.refresh()`, which calls `build_appbar()` with no arguments; it is unreachable
-from the Calculate screen today because `main.build_appbar()` always passes
-`on_change=on_language_changed` rather than relying on that default.
+never be a stale closure.
+
+**Follow-up fix — `HomePage.refresh()` dropped `extra_actions`.** `build_appbar()` set
+`on_change=on_change or self.refresh`, so `refresh` is the *default* language handler, and
+`refresh()` called `build_appbar()` with no arguments — silently discarding the Calculate
+action. This was unreachable today only because `main.build_appbar()` always passes
+`on_change=on_language_changed` explicitly, so the default is never taken; any future
+caller that relied on the default would have lost the button with no error.
+`build_appbar()` now records the actions it was given on `self._extra_actions` (copied, so
+the caller's list is not aliased) and `refresh()` passes them back, so the bar it rebuilds
+matches the bar it replaces. Explicitly rebuilding with no `extra_actions` still yields a
+language-only bar, as before.
 
 **Tests added:** `test_appbar_calculate_action_exists_only_on_the_calculate_screen`,
 `test_appbar_calculate_action_matches_the_in_form_button`,
 `test_appbar_calculate_action_survives_a_language_switch`,
-`test_appbar_calculate_action_is_reachable_on_a_long_form`.
+`test_appbar_calculate_action_is_reachable_on_a_long_form`, plus two added with the
+`refresh()` fix: `test_refresh_preserves_extra_appbar_actions` and
+`test_refresh_without_extra_actions_adds_none`. The first was confirmed to fail against the
+unfixed `refresh()` before the fix was kept.
 
 **Revert:** delete `CalculationPage.build_appbar_action()`; revert
 `HomePage.build_appbar()` to its previous one-parameter form
@@ -541,3 +555,26 @@ it.
 **Not done — manual verification pending.** Unit tests cannot show a double scrollbar, a
 gesture trap, or a layout that overflows. See Round 6's manual pass below; this item is not
 complete until that pass is recorded.
+
+**Pre-flight (automated, not a substitute for the pass).** Two extra checks were run to
+shrink the surface the human pass has to cover. Neither observes pixels or scrollbars:
+1. The real `main.main()` was driven end to end on a page stub carrying the attributes an
+   actual `ft.Page` exposes, at widths 1400 / 992 / 991 / 800 / 0 / `None`. It booted, the
+   Home→Calculate navigation resolved, the resize handler was fired across the 992px
+   boundary in both directions without a rebuild storm or a crash, and both
+   `key="btn-calculate"` and the `result-card` `ScrollKey` survived every rebuild.
+2. `src/main.py` was launched for real and left running 15s: the window process stayed
+   alive and nothing was written to stderr, so there is no import-time or first-frame
+   traceback. It was terminated by the harness.
+Everything below the "renders correctly" line is still unverified.
+
+---
+
+## Untracked / stray files
+
+- `main.py` (repo root, content was the single character `f`) was DELETED. It was
+  accidental and untracked; it is not part of the app (`src/main.py` is the real entry
+  point). Recoverable from nothing — it held no real content.
+- `docs/hukum_waris_islam_indonesia_baznas_dan_makkah.md` — a research/reference doc.
+  Left UNTRACKED and NOT pushed, at the user's request. It is intentionally not part of
+  this feature.

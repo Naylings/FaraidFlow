@@ -78,3 +78,24 @@ async def test_appbar_injected_on_change_replaces_refresh():
     id_tile = page.dialogs[0].content.controls[1]
     await id_tile.on_click(None)
     assert calls == ["changed"]
+
+
+async def test_refresh_preserves_extra_appbar_actions():
+    """refresh() is the default on_change, so it must not drop extra_actions.
+
+    Before this was fixed, refresh() called build_appbar() with no arguments and
+    silently discarded the Calculate action.
+    """
+    home, page = await _home()
+    home.build_appbar(extra_actions=[ft.IconButton(key="appbar-calculate")])
+    home.refresh()
+    keys = [getattr(a, "key", None) for a in page.appbar.actions]
+    assert keys == ["lang-button", "appbar-calculate"], keys
+    assert page.appbar.actions[0].key == "lang-button"
+
+
+async def test_refresh_without_extra_actions_adds_none():
+    home, page = await _home()
+    home.build_appbar()
+    home.refresh()
+    assert [getattr(a, "key", None) for a in page.appbar.actions] == ["lang-button"]
