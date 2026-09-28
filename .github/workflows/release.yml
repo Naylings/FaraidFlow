@@ -119,7 +119,15 @@ jobs:
           flutter config --enable-windows-desktop
 
       - name: Build
-        run: uv run flet build windows --verbose -o dist/windows
+        shell: pwsh
+        env:
+          PYTHONUTF8: "1"
+          PYTHONIOENCODING: "utf-8"
+        run: |
+          chcp 65001
+          [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          uv run flet build windows --verbose -o dist/windows
 
       - name: Collect
         shell: pwsh
