@@ -96,9 +96,9 @@ Actions.
 
 | Platform | Cara |
 |---|---|
-| **Android** | Unduh `.apk` dari [halaman Releases](https://github.com/Naylings/ahli-waris/releases), buka, lalu izinkan **Install unknown apps** untuk aplikasi yang membukanya. |
-| **Windows** | Unduh `.zip` dari [halaman Releases](https://github.com/Naylings/ahli-waris/releases), ekstrak, jalankan `ahli-waris.exe`. |
-| **Web** | Buka <https://naylings.github.io/ahli-waris/> — tanpa perlu unduh apa pun. |
+| **Android** | Unduh `.apk` dari [halaman Releases](https://github.com/Naylings/FaraidFlow/releases), buka, lalu izinkan **Install unknown apps** untuk aplikasi yang membukanya. |
+| **Windows** | Unduh `.zip` dari [halaman Releases](https://github.com/Naylings/FaraidFlow/releases), ekstrak, jalankan `ahli-waris.exe`. |
+| **Web** | Buka <https://naylings.github.io/FaraidFlow/> — tanpa perlu unduh apa pun. |
 
 ### Peringatan Android & Windows
 

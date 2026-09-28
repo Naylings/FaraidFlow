@@ -96,9 +96,9 @@ Actions.
 
 | Platform | How |
 |---|---|
-| **Android** | Download the `.apk` from the [releases page](https://github.com/Naylings/ahli-waris/releases), open it, and allow **Install unknown apps** for whatever app opened it. |
-| **Windows** | Download the `.zip` from the [releases page](https://github.com/Naylings/ahli-waris/releases), extract it, and run `ahli-waris.exe`. |
-| **Web** | Open <https://naylings.github.io/ahli-waris/> — nothing to install. |
+| **Android** | Download the `.apk` from the [releases page](https://github.com/Naylings/FaraidFlow/releases), open it, and allow **Install unknown apps** for whatever app opened it. |
+| **Windows** | Download the `.zip` from the [releases page](https://github.com/Naylings/FaraidFlow/releases), extract it, and run `ahli-waris.exe`. |
+| **Web** | Open <https://naylings.github.io/FaraidFlow/> — nothing to install. |
 
 ### Android and Windows warnings
 

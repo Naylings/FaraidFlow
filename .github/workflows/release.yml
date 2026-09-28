@@ -113,6 +113,11 @@ jobs:
 
       - run: uv sync
 
+      - name: Diagnose Flutter Windows
+        run: |
+          flutter doctor -v
+          flutter config --enable-windows-desktop
+
       - name: Build
         run: uv run flet build windows --verbose -o dist/windows
 
@@ -217,7 +222,7 @@ jobs:
             ### Web
 
             If a web build was published for this tag it is at
-            <https://Naylings.github.io/ahli-waris/>.
+            <https://Naylings.github.io/FaraidFlow/>.
 
             ### Before you rely on it
 
