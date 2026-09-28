@@ -578,3 +578,51 @@ Everything below the "renders correctly" line is still unverified.
 - `docs/hukum_waris_islam_indonesia_baznas_dan_makkah.md` — a research/reference doc.
   Left UNTRACKED and NOT pushed, at the user's request. It is intentionally not part of
   this feature.
+
+## Round 6 manual verification - 2026-09-28
+
+Run against: Windows desktop client and a mobile-width viewport | Flet 1.0.1 |
+widths exercised: 360 / 390 / 430 / 700 / 992 / 1050 / 1100 / 1167 / 1180 / 1280 / 1600
+
+Three passes were needed. The first found the layout defects recorded in Task 6 steps
+1-8; the second found the tree misalignment, the card headers and the un-inset estate
+arithmetic line; the third, on mobile widths, found the cut-off wife dropdown and the
+needlessly stacked parents. All were fixed and re-checked.
+
+| # | Check (spec 6) | Result | Notes |
+|---|---|---|---|
+| 1 | Counts show 0 on load | PASS | |
+| 2 | All inputs share one x-position | PASS | No staircase between Son and Paternal brother |
+| 3 | Pairs side by side at desktop, stacked below | PASS | Now driven by the pane, not the window |
+| 4 | AppBar Calculate on Calculate only | PASS | |
+| 5 | Desktop wide: results pinned, no double scrollbar | PASS | |
+| 6 | Drag across 992px | PASS | First attempt exposed the 992-1180 overlap; clean after the fix |
+| 7 | Narrow: stacked, one continuous scroll | PASS | |
+| 8 | Long form, no overflow | PASS | |
+| 9 | Touch: vertical swipe not captured | PASS | Run on a mobile viewport; the gesture-capture failure did not occur |
+| 10 | Keyboard: submit reachable | PASS | |
+| 11 | Language switch on a populated form | PASS | |
+| 12 | Count fields never blank, blanking returns 0 | PASS | |
+| 13 | Heir spans: no overlap anywhere | PASS | Stack 992-1100, pair from ~1167, entry ~105px |
+| 14 | Tree category headings on one line | PASS | Was `ft.Row` centring children vertically by default |
+| 15 | Estate / Heirs / tree each titled with a divider | PASS | |
+| 16 | Wife count beside the spouse radios | PASS | Row wraps on narrow panes so the dropdown is never cut off |
+| 17 | Table, tree and details share one left edge | PASS | The estate arithmetic line was the last un-inset block |
+
+Extra mobile findings, fixed in the same round:
+
+- The parents (father/mother) stacked at 360-430px even though they fit side by side.
+  They were sharing the count-field threshold, which assumes a 150px label plus an
+  entry; a parent row is only a checkbox and a short label. They now use
+  `MIN_CHECKBOX_WIDTH = 130`, while counts keep `LABEL_WIDTH + MIN_FIELD_WIDTH = 250`.
+- Fixing that first attempt regressed the desktop layout: putting the dropdown in a
+  `wrap=True` row made the wrapping radio group greedily take the whole pane width, so
+  the dropdown dropped underneath the radios at every window size. The pane now decides
+  via `MIN_SPOUSE_INLINE_WIDTH = 420` - side by side while they fit, underneath when
+  they do not - while the radios themselves still wrap so no threshold can overflow.
+- The wife count dropdown was cut off the screen. Three radios plus the dropdown are
+  wider than a phone pane, so both the radio row and the row holding it now `wrap`.
+
+Automated: 146 tests pass, `python -m ruff check src` clean. Eleven mutations were
+checked against the new assertions; the first pass left three of the fixes untested
+and the second left the inset coverage too loose, both since closed.

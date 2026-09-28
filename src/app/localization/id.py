@@ -17,6 +17,7 @@ TRANSLATIONS = {
     'calc.back': 'Kembali',
     'calc.estate': 'Harta Peninggalan',
     'calc.heirs': 'Ahli Waris',
+    'calc.tree': 'Pohon Waris',
     'calc.spouse': 'Pasangan',
     'calc.children': 'Anak',
     'calc.parents': 'Orang Tua',

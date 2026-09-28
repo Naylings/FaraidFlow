@@ -17,6 +17,7 @@ TRANSLATIONS = {
     'calc.back': 'Back',
     'calc.estate': 'Estate',
     'calc.heirs': 'Heirs',
+    'calc.tree': 'Inheritance tree',
     'calc.spouse': 'Spouse',
     'calc.children': 'Children',
     'calc.parents': 'Parents',

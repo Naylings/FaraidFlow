@@ -6,9 +6,18 @@ from app.pages.calculate import CalculationPage, is_two_pane
 from fakes import FakePage, FakeStorage
 
 
-async def _page(language="en"):
+class _Ev:
+    """Minimal stand-in for a Flet change/key event."""
+
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
+
+async def _page(language="en", width=None):
     loc = await Localization.load(FakeStorage(), default_language="en")
     pg = FakePage()
+    if width is not None:
+        pg.width = width
     calc = CalculationPage(pg, loc, back_home=lambda: None)
     return calc, pg, loc
 
@@ -300,7 +309,7 @@ async def test_heir_fields_are_paired_two_up_in_a_responsive_row():
     for keys, row in pairs.items():
         assert len(row.controls) == 2, keys
         for cell in row.controls:
-            assert cell.col == {"sm": 12, "md": 6}, keys
+            assert cell.col in (6, 12), keys
 
 
 async def test_parent_checkboxes_are_paired_in_a_responsive_row():
@@ -317,7 +326,7 @@ async def test_parent_checkboxes_are_paired_in_a_responsive_row():
     parent_row = min(candidates, key=lambda r: sum(1 for _ in _walk(r)))
     assert len(parent_row.controls) == 2
     for cell in parent_row.controls:
-        assert cell.col == {"sm": 12, "md": 6}
+        assert cell.col in (6, 12)
         assert len([c for c in _walk(cell) if isinstance(c, ft.Checkbox)]) == 1
 
 
@@ -487,6 +496,349 @@ async def test_tree_marks_blocked_sibling_disabled():
     assert chips
     assert all(chip.disabled for chip in chips)
     assert all(chip.tooltip is not None for chip in chips)
+
+
+async def test_tree_fills_pane_and_splits_width_by_expand():
+    """Chips live in the result pane, a fraction of the window. The tree must fill
+    that pane and share it out with expand, never with window breakpoints, and its
+    text must be clipped with a tooltip instead of spilling over a neighbour."""
+    calc, pg, _ = await _page()
+    calc.heirs = {"son": 2, "daughter": 1, "brother_full": 1}
+    calc.estate = estate_mod.Estate()
+    calc._compute()
+    root = calc.build()
+
+    tree = next(
+        c for c in _walk(root)
+        if isinstance(c, ft.Card)
+        and any(isinstance(x, ft.Chip) for x in _walk(c))
+    )
+    # the tree card must claim the full width of the pane
+    body = tree.content
+    assert getattr(body, "expand", None) is True
+
+    branch_rows = [c for c in _walk(tree) if isinstance(c, ft.Row) and c.spacing]
+    assert branch_rows
+    row = next(r for r in branch_rows if len(r.controls) > 1)
+    assert row.wrap is not True, "expand and wrap cannot share a Row"
+    # width is divided by expand + gutter, resolved against the real container
+    for branch in row.controls:
+        assert getattr(branch, "expand", None) == 1
+        assert not isinstance(branch.col, dict), "window spans cause the overlap"
+
+    chips = [c for c in _walk(root) if isinstance(c, ft.Chip)]
+    assert chips
+    for chip in chips:
+        assert chip.label.no_wrap is True
+        assert chip.label.overflow == ft.TextOverflow.ELLIPSIS
+        assert chip.tooltip, "clipped chip text must stay readable via tooltip"
+
+
+async def test_tree_omits_a_section_that_has_no_heirs():
+    """Selecting 'no spouse' must not leave an empty Spouse heading on the tree."""
+    calc, pg, loc = await _page()
+    calc.heirs = {"son": 2}
+    calc.estate = estate_mod.Estate()
+    calc._compute()
+    calc.build()
+    without = [x.value for x in _walk(calc.result_card) if isinstance(x, ft.Text)]
+    assert loc.get("calc.spouse") not in without
+    assert loc.get("calc.children") in without
+
+    calc2, _pg2, loc2 = await _page()
+    calc2.heirs = {"wife": 1, "son": 2}
+    calc2.estate = estate_mod.Estate()
+    calc2._compute()
+    calc2.build()
+    with_spouse = [
+        x.value for x in _walk(calc2.result_card) if isinstance(x, ft.Text)
+    ]
+    assert loc2.get("calc.spouse") in with_spouse
+
+
+async def test_count_field_is_always_one_plain_number():
+    """Counts follow the estate fields' own formatting: always a single plain
+    number, never blank, never negative, never carrying stray characters."""
+    calc, pg, _ = await _page()
+    root = calc.build()
+    field = _by_key(root, "count-son")
+    assert field is not None
+    assert isinstance(field, ft.TextField)
+    assert field.value == "0"
+    assert isinstance(field.input_filter, ft.InputFilter)
+    assert field.on_change is not None
+
+    def type_in(text):
+        field.value = text
+        field.on_change(_Ev(control=field))
+        return field.value
+
+    assert type_in("") == "0", "blank snaps back to a real number"
+    assert type_in("007") == "7", "stray leading zeros are normalised"
+    assert type_in("1,2") == "12", "separators typed by hand are stripped"
+    assert type_in("12a") == "12", "letters are dropped"
+    assert type_in("3") == "3", "a plain number is left alone"
+
+
+async def test_heir_pairs_follow_the_pane_not_the_window():
+    """Regression: the heir card used to ask for two fields side by side based on
+    `page.width`, but it sits in the form pane, which in two-pane mode is half the
+    window. Between ~992 and ~1180 that produced two cells too narrow to hold a
+    150px label and an entry, and the fields overlapped."""
+    from app.pages.calculate import LABEL_WIDTH, MIN_FIELD_WIDTH
+
+    async def _spans(width):
+        calc, pg, _ = await _page(width=width)
+        root = calc.build()
+        rows = [
+            r
+            for r in _walk(root)
+            if isinstance(r, ft.ResponsiveRow)
+            and "count-son" in {
+                x.key for x in _walk(r) if isinstance(getattr(x, "key", None), str)
+            }
+        ]
+        # the page-level ResponsiveRow contains count-son deeper down; take the
+        # innermost one, which is the actual pair of heir fields
+        inner = min(rows, key=lambda r: sum(1 for _ in _walk(r)))
+        return {c.col for c in inner.controls}
+
+    # cramped panes stack. 992-1100 is where the fields were too tight to use
+    for width in (992, 1000, 1024, 1100):
+        assert await _spans(width) == {12}, f"too cramped at window width {width}"
+
+    # 1167 and up leave the entry a comfortable ~105px, so pairing is kept
+    for width in (1167, 1180, 1400, 1600):
+        assert await _spans(width) == {6}, f"should pair at window width {width}"
+
+    # the decision is driven by the pane, so stacked mode pairs far earlier
+    assert await _spans(700) == {6}
+
+    # the entry can never push past its own cell
+    calc, pg, _ = await _page(width=1167)
+    root = calc.build()
+    for f in _walk(root):
+        if getattr(f, "key", None) in ("count-son", "count-daughter"):
+            assert f.expand is True
+
+
+async def test_tree_card_is_titled_and_branches_align_to_the_top():
+    """ft.Row centres its children vertically by default, so a branch holding fewer
+    chips floated up and its category heading landed on a different line from its
+    neighbours'. The tree card also needed a title and divider like the other two."""
+    calc, pg, loc = await _page()
+    calc.heirs = {"wife": 1, "son": 2, "daughter": 1, "brother_full": 1}
+    calc.estate = estate_mod.Estate()
+    calc._compute()
+    root = calc.build()
+
+    tree = next(
+        c for c in _walk(root)
+        if isinstance(c, ft.Card)
+        and any(
+            isinstance(x, ft.Text) and x.value == loc.get("calc.tree")
+            for x in _walk(c)
+        )
+    )
+    col = tree.content.content
+    head = col.controls[0]
+    assert head.size == 15
+    assert head.weight == ft.FontWeight.BOLD
+    assert isinstance(col.controls[1], ft.Divider)
+
+    branch_rows = [
+        c for c in col.controls
+        if isinstance(c, ft.Row)
+        and any(isinstance(x, ft.Column) for x in c.controls)
+    ]
+    assert len(branch_rows) == 1
+    assert branch_rows[0].vertical_alignment == ft.CrossAxisAlignment.START
+
+
+async def test_parents_stay_paired_on_a_phone_but_count_fields_stack():
+    """A parent row is a checkbox and a short label; a count field is a 150px label
+    plus an entry. They must not share one threshold, or the parents stack on a
+    phone where they plainly fit side by side."""
+    from app.pages.calculate import MIN_CHECKBOX_WIDTH, MIN_FIELD_WIDTH
+
+    async def _cols(width):
+        calc, pg, _ = await _page(width=width)
+        root = calc.build()
+        rows = [
+            r for r in _walk(root)
+            if isinstance(r, ft.ResponsiveRow)
+            and "father" in {x.key for x in _walk(r) if isinstance(getattr(x, "key", None), str)}
+        ]
+        inner = min(rows, key=lambda r: sum(1 for _ in _walk(r)))
+        parent_row = inner
+        sons = [
+            r for r in _walk(root)
+            if isinstance(r, ft.ResponsiveRow)
+            and "count-son" in {x.key for x in _walk(r) if isinstance(getattr(x, "key", None), str)}
+        ]
+        son_row = min(sons, key=lambda r: sum(1 for _ in _walk(r)))
+        return (
+            sorted({c.col for c in parent_row.controls}),
+            sorted({c.col for c in son_row.controls}),
+        )
+
+    # a typical phone: parents fit, counts do not
+    for width in (360, 390, 430):
+        parents, sons = await _cols(width)
+        assert parents == [6], f"parents stacked at {width}px"
+        assert sons == [12], f"counts should stack at {width}px"
+
+    # a wide pane pairs both
+    assert await _cols(1167) == ([6], [6])
+
+    # the two thresholds must actually differ, or this test proves nothing
+    assert MIN_CHECKBOX_WIDTH < 150 + MIN_FIELD_WIDTH
+
+
+async def test_wife_count_sits_beside_the_radios_until_the_pane_is_too_narrow():
+    """A `wrap=True` row is the wrong tool: a wrapping child greedily takes the full
+    pane width, so the dropdown dropped underneath at every size. The pane decides."""
+    from app.pages.calculate import MIN_SPOUSE_INLINE_WIDTH
+
+    async def _section(width):
+        calc, pg, loc = await _page(width=width)
+        root = calc.build()
+        spouse = next(
+            c for c in _walk(root)
+            if isinstance(c, ft.Column)
+            and getattr(c.controls[0], "value", None) == loc.get("calc.spouse")
+        )
+        return spouse, calc._form_pane_width()
+
+    # side by side wherever they genuinely fit
+    for width in (992, 1100, 1167, 1280, 1600):
+        section, pane = await _section(width)
+        assert isinstance(section.controls[1], ft.Row), f"dropdown dropped at {width}px (pane {pane:.0f})"
+        assert [type(x).__name__ for x in section.controls[1].controls] == [
+            "RadioGroup",
+            "Dropdown",
+        ]
+
+    # underneath on a phone, as two siblings, so it is never cut off the screen
+    for width in (360, 390, 430):
+        section, pane = await _section(width)
+        assert not isinstance(section.controls[1], ft.Row), f"crowded at {width}px (pane {pane:.0f})"
+        assert [type(x).__name__ for x in section.controls[1:3]] == [
+            "RadioGroup",
+            "Dropdown",
+        ]
+
+    # the radios wrap in both layouts, so a misjudged threshold can never overflow
+    for width in (360, 1167):
+        section, _ = await _section(width)
+        group = next(c for c in _walk(section) if isinstance(c, ft.RadioGroup))
+        assert group.content.wrap is True
+        assert _by_key(section, "count-wife") is not None
+
+    # the threshold has to sit between a phone and the narrowest two-pane layout
+    _, pane992 = await _section(992)
+    _, pane430 = await _section(430)
+    assert pane430 < MIN_SPOUSE_INLINE_WIDTH <= pane992
+
+
+async def test_every_result_pane_block_shares_one_16px_inset():
+    """The estate arithmetic line ran to the bezel while the table above it was
+    inset. Every block in the result pane has to start on the same left edge."""
+    calc, pg, _ = await _page()
+    calc.heirs = {"wife": 1, "son": 2}
+    calc.estate = estate_mod.Estate(gross=1_000_000)
+    calc._compute()
+    root = calc.build()
+
+    # result_card is the only Column whose key is not a string; its single child is
+    # the block list built by _build_result()
+    host = next(
+        c for c in _walk(root)
+        if isinstance(c, ft.Column)
+        and getattr(c, "key", None) is not None
+        and not isinstance(c.key, str)
+    )
+    result = host.controls[0]
+
+    def _inset(block):
+        node = block.content if isinstance(block, ft.Card) else block
+        p = getattr(node, "padding", None)
+        if isinstance(p, (int, float)):
+            return (p, p)
+        return (getattr(p, "left", None), getattr(p, "right", None))
+
+    # tree, table, breakdown, notes, details
+    assert len(result.controls) == 5
+    for block in result.controls:
+        assert _inset(block) == (16, 16), f"{type(block).__name__} is not inset"
+
+
+async def test_heir_card_reads_as_four_titled_sections():
+    """The card groups spouse/children/parents/siblings, so the grouping has to be
+    visible: separated by spacing, with headings that carry weight."""
+    calc, pg, loc = await _page()
+    root = calc.build()
+
+    card = next(
+        c for c in _walk(root)
+        if isinstance(c, ft.Card)
+        and any(isinstance(x, ft.Text) and x.value == loc.get("calc.heirs")
+                for x in _walk(c))
+    )
+    assert getattr(card.content, "padding", None) == 16
+    col = card.content.content
+    assert getattr(col, "spacing", None) == 16, "sections must be visually separated"
+
+    headings = [c.controls[0] for c in col.controls if isinstance(c, ft.Column)]
+    titles = [h.value for h in headings]
+    assert titles == [
+        loc.get("calc.spouse"),
+        loc.get("calc.children"),
+        loc.get("calc.parents"),
+        loc.get("calc.siblings"),
+    ]
+    for h in headings:
+        assert h.size == 13
+        assert h.weight == ft.FontWeight.BOLD
+
+    # a single divider separates the card title from the first section
+    assert sum(isinstance(c, ft.Divider) for c in col.controls) == 1
+    assert isinstance(col.controls[1], ft.Divider)
+
+    # presentation only: every field is still there
+    keys = {getattr(x, "key", None) for x in _walk(card)} - {None}
+    for k in ("count-son", "count-daughter", "count-wife", "father", "mother",
+              "count-brother_full", "count-sister_uterine"):
+        assert k in keys, f"{k} disappeared from the heir card"
+    assert _by_key(root, "count-wife") is not None
+
+    # the wife count sits beside the choice that enables it, not under it
+    spouse = next(
+        s for s in col.controls
+        if isinstance(s, ft.Column) and s.controls[0].value == loc.get("calc.spouse")
+    )
+    body = spouse.controls[1]
+    assert isinstance(body, ft.Row)
+    assert [type(x).__name__ for x in body.controls] == ["RadioGroup", "Dropdown"]
+    assert _by_key(body, "count-wife") is not None
+
+
+async def test_result_table_cells_carry_tooltips():
+    """Amounts are no_wrap + ellipsis, so every cell keeps its full value in a
+    tooltip for narrow panes."""
+    calc, pg, _ = await _page()
+    calc.heirs = {"son": 1}
+    calc.estate = estate_mod.Estate()
+    calc._compute()
+    root = calc.build()
+    table = _by_key(root, "result-table")
+    assert table is not None
+    cells = [c for c in _walk(table) if isinstance(c, ft.Text) and c.expand]
+    assert cells
+    for cell in cells:
+        assert cell.no_wrap is True
+        assert cell.overflow == ft.TextOverflow.ELLIPSIS
+        assert cell.tooltip == cell.value
 
 
 def test_equivalence_lines_use_group_share_so_sum_to_one():
