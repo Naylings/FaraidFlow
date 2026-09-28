@@ -21,6 +21,8 @@ class FakePage:
         self.controls = []
         self.appbar = None
         self.dialogs = []
+        # Below TWO_PANE_MIN_WIDTH (992), so the default in tests is stacked mode.
+        self.width = 800
 
     def add(self, *controls):
         self.controls.extend(controls)

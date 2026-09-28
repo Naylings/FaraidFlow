@@ -41,14 +41,22 @@ async def test_appbar_title_and_language_button():
     assert appbar.actions[0].content == "🇬🇧 EN"
 
 
-async def test_tapping_calculate_shows_snackbar():
+async def test_tapping_calculate_routes_to_calculator():
+    pages = []
     home, page = await _home()
+    home.on_calculate = lambda: pages.append("calc")
     calculate = next(b for b in _buttons(home) if b.key == "menu-calculate")
     calculate.on_click(None)
-    assert len(page.dialogs) == 1
-    dialog = page.dialogs[0]
-    assert isinstance(dialog, ft.SnackBar)
-    assert dialog.content == "Coming soon: Calculate"
+    assert pages == ["calc"]
+
+
+async def test_information_and_about_still_snackbar():
+    home, page = await _home()
+    info = next(b for b in _buttons(home) if b.key == "menu-information")
+    about = next(b for b in _buttons(home) if b.key == "menu-about")
+    info.on_click(None)
+    about.on_click(None)
+    assert len(page.dialogs) == 2
 
 
 async def test_refresh_rebuilds_in_indonesian():
@@ -58,3 +66,36 @@ async def test_refresh_rebuilds_in_indonesian():
     assert [b.content for b in _buttons(home)] == ["Hitung", "Informasi", "Tentang"]
     assert page.appbar.title.value == "FaraidFlow"
     assert page.appbar.actions[0].content == "🇮🇩 ID"
+
+
+async def test_appbar_injected_on_change_replaces_refresh():
+    home, page = await _home()
+    calls = []
+    appbar = home.build_appbar(on_change=lambda: calls.append("changed"))
+    assert appbar.actions[0].key == "lang-button"
+    page.appbar = appbar
+    page.appbar.actions[0].on_click(None)
+    id_tile = page.dialogs[0].content.controls[1]
+    await id_tile.on_click(None)
+    assert calls == ["changed"]
+
+
+async def test_refresh_preserves_extra_appbar_actions():
+    """refresh() is the default on_change, so it must not drop extra_actions.
+
+    Before this was fixed, refresh() called build_appbar() with no arguments and
+    silently discarded the Calculate action.
+    """
+    home, page = await _home()
+    home.build_appbar(extra_actions=[ft.IconButton(key="appbar-calculate")])
+    home.refresh()
+    keys = [getattr(a, "key", None) for a in page.appbar.actions]
+    assert keys == ["lang-button", "appbar-calculate"], keys
+    assert page.appbar.actions[0].key == "lang-button"
+
+
+async def test_refresh_without_extra_actions_adds_none():
+    home, page = await _home()
+    home.build_appbar()
+    home.refresh()
+    assert [getattr(a, "key", None) for a in page.appbar.actions] == ["lang-button"]

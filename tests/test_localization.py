@@ -76,3 +76,44 @@ def test_languages_metadata():
     by_code = {lang["code"]: lang for lang in LANGUAGES}
     assert by_code["en"]["flag"] == "🇬🇧"
     assert by_code["id"]["flag"] == "🇮🇩"
+
+
+async def test_sibling_labels_english_drop_indonesian_notes():
+    loc = await Localization.load(FakeStorage(), default_language="en")
+    assert loc.get("brother_full") == "Full brother"
+    assert loc.get("sister_full") == "Full sister"
+    assert loc.get("brother_consang") == "Paternal brother"
+    assert loc.get("sister_consang") == "Paternal sister"
+    assert loc.get("brother_uterine") == "Maternal brother"
+    assert loc.get("sister_uterine") == "Maternal sister"
+
+
+async def test_sibling_labels_indonesian_use_saudara_saudari():
+    storage = FakeStorage()
+    await storage.set(Localization.STORAGE_KEY, "id")
+    loc = await Localization.load(storage, default_language="en")
+    assert loc.get("brother_full") == "Saudara kandung"
+    assert loc.get("sister_full") == "Saudari kandung"
+    assert loc.get("brother_consang") == "Saudara seayah"
+    assert loc.get("sister_consang") == "Saudari seayah"
+    assert loc.get("brother_uterine") == "Saudara seibu"
+    assert loc.get("sister_uterine") == "Saudari seibu"
+
+
+async def test_money_entries_present():
+    loc = await Localization.load(FakeStorage(), default_language="en")
+    assert loc.get("money.prefix") == "$"
+    assert loc.get("money.thousands_sep") == ","
+    assert loc.get("money.decimal_sep") == "."
+
+
+async def test_new_calc_keys_present_both_languages():
+    en = await Localization.load(FakeStorage(), default_language="en")
+    id = await Localization.load(FakeStorage(), default_language="id")
+    keys = ("calc.details", "calc.equal", "calc.blocked", "calc.blocked_tip",
+            "calc.residual", "calc.col_each", "calc.col_total",
+            "calc.block.reason.lineal", "calc.block.reason.full_brother",
+            "calc.block.reason.uterine")
+    for key in keys:
+        assert en.get(key) != key, f"missing EN key {key}"
+        assert id.get(key) != key, f"missing ID key {key}"

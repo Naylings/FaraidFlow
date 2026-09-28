@@ -1,6 +1,7 @@
 import flet as ft
 
 from app.localization.localization import Localization
+from app.pages.calculate import CalculationPage, is_two_pane
 from app.pages.home import HomePage
 
 
@@ -13,7 +14,62 @@ async def main(page: ft.Page):
     localization = await Localization.load(prefs, default_language="en")
 
     home = HomePage(page, localization)
-    page.appbar = home.build_appbar()
+    screen = {"name": "home"}
+    calc = None
+
+    def show_content(control):
+        page.clean()
+        page.add(control)
+        page.update()
+
+    def build_appbar():
+        extra = None
+        if screen["name"] == "calc" and calc is not None:
+            extra = [calc.build_appbar_action()]
+        return home.build_appbar(on_change=on_language_changed, extra_actions=extra)
+
+    def on_language_changed():
+        if screen["name"] == "calc" and calc is not None:
+            refresh_calculate()
+        else:
+            show_home()
+
+    def show_home():
+        nonlocal calc
+        screen["name"] = "home"
+        calc = None
+        page.appbar = build_appbar()
+        home.body = home.build_body()
+        show_content(home.build())
+        page.update()
+
+    def show_calculate():
+        nonlocal calc
+        calc = CalculationPage(page, localization, back_home=show_home)
+        screen["name"] = "calc"
+        refresh_calculate()
+
+    def refresh_calculate():
+        state = calc.capture_state()
+        page.appbar = build_appbar()
+        root = calc.build()
+        calc.restore_state(state)
+        show_content(root)
+        page.update()
+
+    def on_page_resize(e):
+        if (
+            screen["name"] == "calc"
+            and calc is not None
+            and calc.two_pane != is_two_pane(getattr(page, "width", None))
+        ):
+            refresh_calculate()
+
+    page.on_resize = on_page_resize
+
+    home.on_calculate = show_calculate
+    screen["name"] = "home"
+    page.appbar = build_appbar()
     page.add(home.build())
     page.update()
 
