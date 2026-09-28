@@ -31,9 +31,6 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["src"]
 
-[tool.pyright]
-extraPaths = ["src"]
-
 [tool.flet]
 # org + product become the Android application id (com.faraidflow.ahli-waris)
 # and the Windows exe filename. The "com.mycompany" the template ships with
