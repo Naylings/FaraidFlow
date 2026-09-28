@@ -1,24 +1,29 @@
 [project]
 name = "ahli-waris"
-version = "0.1.0"
-description = ""
+version = "0.1.0-beta.1"
+description = "Kalkulator pewarisan Islam (faraid) dengan dukungan bahasa Indonesia dan Inggris"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-    { name = "Flet developer", email = "you@example.com" }
+    { name = "Naylings" }
 ]
+# Pinned exactly, not ranged. Flet checks the Flutter major.minor it was
+# released against and refuses to build against anything else, so a range here
+# would let a release silently upgrade to a Flutter the CI has not installed.
+# This pin and FLUTTER_VERSION in .github/workflows/release.yml must move
+# together.
 dependencies = [
-    "flet>=1.0.1"
+    "flet==1.0.1"
 ]
 
 [dependency-groups]
 dev = [
-    "flet-cli>=1.0.1",
-    "flet-desktop>=1.0.1",
-    "flet-web>=1.0.1",
+    "flet-cli==1.0.1",
+    "flet-desktop==1.0.1",
+    "flet-web==1.0.1",
     # Integration testing with `flet test` / pytest. The `test` extra brings in
     # pytest, pytest-asyncio and the screenshot-comparison dependencies.
-    "flet[test]>=1.0.1",
+    "flet[test]==1.0.1",
 ]
 
 [tool.pytest.ini_options]
@@ -27,10 +32,13 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 
 [tool.flet]
-org = "com.mycompany"
+# org + product become the Android application id (com.faraidflow.ahli-waris)
+# and the Windows exe filename. The "com.mycompany" the template ships with
+# would put someone else's name in the package id of a published app.
+org = "com.faraidflow"
 product = "ahli-waris"
-company = "Flet"
-copyright = "Copyright (C) 2023-2026 by Flet"
+company = "FaraidFlow"
+copyright = "Copyright (C) 2026 FaraidFlow"
 
 # src/assets/icon.png is the icon for every platform. Keep it transparent and
 # filling the whole canvas: web, Windows and Linux show it as-is, and Flet

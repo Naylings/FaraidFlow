@@ -1,0 +1,225 @@
+name: Release
+
+# Pushing a v* tag publishes a GitHub Release containing an Android APK and a
+# Windows build, and deploys the web build to GitHub Pages.
+#
+# The jobs are deliberately independent: the web deploy does not gate the
+# release, so a failure in one does not hold up the other.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "An existing tag to build and publish"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  # Flet 1.0.1 refuses to package against any other Flutter major.minor. It
+  # reads the pin from flet.version.flutter_version, so this has to move
+  # together with the `flet` requirement in pyproject.toml.
+  FLUTTER_VERSION: "3.44.8"
+  JAVA_VERSION: "17"
+
+jobs:
+  apk:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Accept Android SDK licences
+        run: yes | flutter doctor --android-licenses || true
+
+      - run: uv sync
+
+      # No keystore is configured, so Flet signs with the debug key. That APK is
+      # sideload-installable but is not accepted by Google Play.
+      - name: Build
+        run: uv run flet build apk --verbose -o dist/apk
+
+      - name: Collect
+        run: |
+          set -eu
+          apk="$(find dist/apk -name '*.apk' -type f | head -n 1)"
+          if [ -z "$apk" ]; then
+            echo "::error::no APK under dist/apk"
+            find dist -type f 2>/dev/null | head -n 40
+            exit 1
+          fi
+          mkdir -p out && cp "$apk" "out/ahli-waris-$(python -c 'import tomllib;print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])').apk"
+          ls -lh out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: out/*.apk
+          retention-days: 30
+
+  windows:
+    name: Windows build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # The Windows runner image ships Visual Studio 2022. Flutter needs the
+      # "Desktop development with C++" workload, and will try to add it itself
+      # if it is missing, which is interactive. Fail loudly instead of hanging.
+      - name: Check C++ toolchain
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+            -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          if (-not $vs) {
+            Write-Error "Visual Studio C++ workload is not installed on this runner"
+            exit 1
+          }
+          "using Visual Studio at $vs"
+
+      - run: uv sync
+
+      - name: Build
+        run: uv run flet build windows --verbose -o dist/windows
+
+      - name: Collect
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path dist -Recurse -Filter '*.exe' -File |
+                 Sort-Object Length -Descending | Select-Object -First 1
+          if (-not $exe) { Write-Error "no .exe under dist"; exit 1 }
+          # The exe needs the DLLs and data beside it to run, so ship the folder
+          # as a zip rather than the bare binary.
+          $dir = Split-Path $exe.FullName -Parent
+          $ver = (Select-String -Path pyproject.toml -Pattern '^version\s*=\s*"(.*)"').Matches[0].Groups[1].Value
+          $zip = "out/ahli-waris-$ver-windows-x64.zip"
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          Compress-Archive -Path "$dir/*" -DestinationPath $zip
+          Get-ChildItem out | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: out/*.zip
+          retention-days: 30
+
+  web:
+    name: Web (GitHub Pages)
+    runs-on: ubuntu-latest
+    # Job-level permissions replace the workflow-level block, so contents:read
+    # has to be repeated here or actions/checkout starts failing. The other two
+    # are what actions/deploy-pages needs to mint a deployment token.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: uv sync
+
+      - name: Build
+        run: uv run flet build web --verbose -o dist/web --base-url "/${{ github.event.repository.name }}/"
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/web
+
+      - uses: actions/deploy-pages@v4
+        id: deploy
+
+      - name: Report URL
+        run: echo "deployed to ${{ steps.deploy.outputs.page_url }}"
+
+  release:
+    name: GitHub Release
+    needs: [apk, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - run: ls -lh artifacts
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          name: ${{ inputs.tag || github.ref_name }}
+          prerelease: true
+          generate_release_notes: true
+          files: artifacts/*
+          body: |
+            ### Android
+
+            Download `ahli-waris-*-apk`, open it, and allow **Install unknown
+            apps** for whichever app opened it. Android warns about an unknown
+            source the first time; that is expected for a build that does not go
+            through Google Play. It is signed with a debug key, so it is for
+            testing and sharing, not the Play Store.
+
+            ### Windows
+
+            Unzip `ahli-waris-*-windows-x64.zip` and run `ahli-waris.exe`. Windows
+            SmartScreen may warn about an unrecognised publisher on first run.
+
+            ### Web
+
+            If a web build was published for this tag it is at
+            <https://Naylings.github.io/ahli-waris/>.
+
+            ### Before you rely on it
+
+            This is a beta. It computes Sunni inheritance rules, but check any
+            result against a qualified scholar before using it for a real estate.
