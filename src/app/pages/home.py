@@ -13,11 +13,12 @@ MENU = [
 
 
 class HomePage:
-    def __init__(self, page: ft.Page, localization: Localization, on_calculate=None, on_information=None):
+    def __init__(self, page: ft.Page, localization: Localization, on_calculate=None, on_information=None, on_about=None):
         self.page = page
         self.localization = localization
         self.on_calculate = on_calculate
         self.on_information = on_information
+        self.on_about = on_about
         self._extra_actions: list = []
         self.body = self.build_body()
 
@@ -72,15 +73,12 @@ class HomePage:
         self.page.update()
 
     def _dispatch(self, key: str) -> None:
-        """Send a menu button to its page; anything not wired up yet - About, or
-        a page whose callback has not been passed in - says "coming soon"."""
-        handler = {"calculate": self.on_calculate, "information": self.on_information}.get(key)
-        if handler is None:
-            self._show_soon(key)
-        else:
+        """Send a menu button to its page; a screen whose callback has not been
+        passed in does nothing."""
+        handler = {
+            "calculate": self.on_calculate,
+            "information": self.on_information,
+            "about": self.on_about,
+        }.get(key)
+        if handler is not None:
             handler()
-
-    def _show_soon(self, section: str) -> None:
-        self.page.show_dialog(
-            ft.SnackBar(content=self.localization.get(f"soon.{section}"))
-        )

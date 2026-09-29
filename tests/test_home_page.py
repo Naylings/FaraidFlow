@@ -56,13 +56,22 @@ async def test_tapping_calculate_routes_to_calculator():
     assert pages == ["calc"]
 
 
-async def test_information_and_about_still_snackbar():
+async def test_information_and_about_buttons_route_to_their_pages():
+    """Both screens exist now, so neither menu button falls back to a snackbar."""
+    calls = []
     home, page = await _home()
-    info = next(b for b in _buttons(home) if b.key == "menu-information")
-    about = next(b for b in _buttons(home) if b.key == "menu-about")
-    info.on_click(None)
-    about.on_click(None)
-    assert len(page.dialogs) == 2
+    home.on_information = lambda: calls.append("info")
+    home.on_about = lambda: calls.append("about")
+    next(b for b in _buttons(home) if b.key == "menu-information").on_click(None)
+    next(b for b in _buttons(home) if b.key == "menu-about").on_click(None)
+    assert calls == ["info", "about"]
+    assert page.dialogs == []
+
+
+async def test_a_menu_button_without_a_callback_does_nothing():
+    home, page = await _home()
+    next(b for b in _buttons(home) if b.key == "menu-about").on_click(None)
+    assert page.dialogs == []
 
 
 async def test_refresh_rebuilds_in_indonesian():
