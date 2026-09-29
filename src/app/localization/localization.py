@@ -1,5 +1,7 @@
 # src/app/localization/localization.py
 
+from decimal import ROUND_HALF_UP, Decimal, localcontext
+
 from . import en, id  # language tables
 
 LANGUAGES = [
@@ -29,6 +31,13 @@ STORAGE_KEYS = {
 
 _CODES = {lang["code"] for lang in LANGUAGES}
 _TABLES = {"en": en, "id": id}
+_CENTS = Decimal("0.01")
+
+
+def _group(digits: str, sep: str) -> str:
+    """Group a plain digit string in threes, e.g. '1234567' -> '1,234,567'."""
+    head = len(digits) % 3 or 3
+    return sep.join([digits[:head], *(digits[i:i + 3] for i in range(head, len(digits), 3))])
 
 
 class Localization:
@@ -109,29 +118,31 @@ class Localization:
         except Exception:  # noqa: BLE001, S110
             pass
 
-    def format_money(self, amount: int) -> str:
+    def format_money(self, amount: int | Decimal) -> str:
+        """Render an amount in the selected currency, at two decimal places.
+
+        The faraid engine produces `Decimal` amounts, and its odd remainders
+        land on half-cents (a 1,000,001 estate shared by a husband and a son is
+        250,000.25 / 750,000.75), so the fractional part is real data and has to
+        be split off before the integer part is grouped -- grouping the digits of
+        `str(Decimal)` would eat the '.' as if it were a thousands separator. An
+        `int` is read as whole currency units, which is what the engine's inputs
+        are, and so it shows the trailing zeros the amounts have always shown.
+        """
         curr = next(c for c in CURRENCIES if c["code"] == self._currency)
-        symbol = curr["symbol"]
-        thousands_sep = curr["thousands"]
-        decimal_sep = curr["decimal"]
-        position = curr["position"]
-
-        # Format integer part with thousands separator
-        s = str(amount)
-        if len(s) <= 3:
-            int_part = s
-        else:
-            parts = []
-            while len(s) > 3:
-                parts.append(s[-3:])
-                s = s[:-3]
-            parts.append(s)
-            int_part = thousands_sep.join(reversed(parts))
-
-        # Decimal part (always .00 since amount is integer representing cents)
-        dec_part = "00"
-
-        if position == "prefix":
-            return f"{symbol}{int_part}{decimal_sep}{dec_part}"
-        else:
-            return f"{int_part}{decimal_sep}{dec_part} {symbol}"
+        value = Decimal(amount)
+        with localcontext() as ctx:
+            # Both quantize and Decimal's own formatting round within the context,
+            # whose 28 digits the engine sets globally, so an amount wider than
+            # that would raise. The estate fields cap nothing, so one is
+            # typeable; widen the context to fit whatever came in.
+            ctx.prec = max(ctx.prec, len(value.as_tuple().digits) + 2)
+            rounded = value.quantize(_CENTS, rounding=ROUND_HALF_UP)
+            whole, _, frac = f"{abs(rounded):f}".partition(".")
+        # The sign comes off the rounded value, so a negative that rounds to zero
+        # (a -0.004) reads as plain zero instead of "-$0.00".
+        sign = "-" if rounded < 0 else ""
+        digits = f"{_group(whole, curr['thousands'])}{curr['decimal']}{frac}"
+        if curr["position"] == "prefix":
+            return f"{sign}{curr['symbol']}{digits}"
+        return f"{sign}{digits} {curr['symbol']}"

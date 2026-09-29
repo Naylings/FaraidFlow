@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 
 from app.localization import en, id
@@ -152,3 +154,62 @@ def test_currency_format_money():
     assert loc.format_money(1234567) == "1.234.567,00 Rp"
     loc.currency = "EUR"
     assert loc.format_money(1234567) == "1.234.567,00 €"
+
+
+def test_format_money_keeps_the_cents_the_engine_produced():
+    """The faraid engine hands out Decimals quantized to a cent and its odd
+    remainders land on half-cents all the time. Grouping the digits of
+    `str(Decimal)` would eat the '.' as if it were a thousands separator, so the
+    fractional part has to be split off before the integer part is grouped."""
+    loc = Localization("en", None)
+    loc.currency = "USD"
+    assert loc.format_money(Decimal("500000.50")) == "$500,000.50"
+    loc.currency = "IDR"
+    assert loc.format_money(Decimal("500000.50")) == "500.000,50 Rp"
+    loc.currency = "EUR"
+    assert loc.format_money(Decimal("500000.50")) == "500.000,50 €"
+
+
+def test_format_money_rounds_anything_finer_than_a_cent():
+    loc = Localization("en", None)
+    loc.currency = "USD"
+    assert loc.format_money(Decimal("1.005")) == "$1.01"
+    assert loc.format_money(Decimal("1234567.894")) == "$1,234,567.89"
+
+
+def test_format_money_edges():
+    loc = Localization("en", None)
+    loc.currency = "USD"
+    assert loc.format_money(Decimal(0)) == "$0.00"
+    assert loc.format_money(Decimal("0.5")) == "$0.50"
+    # the sign belongs outside the symbol, whichever side the symbol sits on
+    assert loc.format_money(Decimal("-1234.5")) == "-$1,234.50"
+    loc.currency = "IDR"
+    assert loc.format_money(Decimal("-1234.5")) == "-1.234,50 Rp"
+
+
+def test_format_money_does_not_invent_a_sign_on_a_negative_that_rounds_to_zero():
+    loc = Localization("en", None)
+    loc.currency = "USD"
+    assert loc.format_money(Decimal("-0.004")) == "$0.00"
+
+
+def test_format_money_handles_an_amount_wider_than_the_decimal_context():
+    """The engine runs with a 28-digit decimal context, and quantize() rounds
+    within it, so an amount with more integer digits than that would raise
+    instead of rendering. The estate fields cap nothing, so one is typeable."""
+    loc = Localization("en", None)
+    loc.currency = "USD"
+    huge = 10 ** 30
+    assert loc.format_money(huge) == "$1,000,000,000,000,000,000,000,000,000,000.00"
+
+
+def test_format_money_reads_an_int_as_whole_currency_units():
+    """An int is a whole amount, so it keeps the '.00' it always showed; the same
+    value as a Decimal must come out identical, or the page would change an
+    amount's cents depending on which type the engine happened to produce."""
+    loc = Localization("en", None)
+    loc.currency = "USD"
+    assert loc.format_money(500000) == "$500,000.00"
+    assert loc.format_money(500000) == loc.format_money(Decimal("500000.00"))
+    assert loc.format_money(500000) == loc.format_money(Decimal(500000))

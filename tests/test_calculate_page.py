@@ -189,7 +189,7 @@ async def test_restore_state_regenerates_result_in_new_language():
     assert any("Suami" in (v or "") for v in texts)
 
 
-from app.pages.calculate import _fmt_int, _money
+from app.pages.calculate import _fmt_int
 
 
 def test_fmt_int_groups_thousands():
@@ -204,16 +204,113 @@ def test_parse_int_strips_commas():
     assert _parse_int("abc") == 0
 
 
-def test_money_formats_en():
-    from decimal import Decimal
-    t = {"money.prefix": "$", "money.thousands_sep": ",", "money.decimal_sep": "."}.get
-    assert _money(Decimal("1234567.89"), t) == "$1,234,567.89"
+async def test_result_amounts_follow_the_chosen_currency():
+    """Every amount on the result page is rendered by Localization.format_money,
+    so picking a currency in settings re-renders the table in that currency's
+    symbol and separators."""
+    calc, pg, loc = await _page()
+    loc.currency = "IDR"
+    calc.heirs = {"son": 1}
+    calc.estate = estate_mod.Estate(gross=1234567)
+    calc._compute()
+    table = _by_key(calc._build_result(), "result-table")
+    cells = [c.value for row in table.controls[2:] for c in row.controls]
+    assert "$" not in "".join(cells)
+    assert any("1.234.567,00 Rp" in v for v in cells), cells
 
 
-def test_money_formats_id():
-    from decimal import Decimal
-    t = {"money.prefix": "$", "money.thousands_sep": ".", "money.decimal_sep": ","}.get
-    assert _money(Decimal("1234567.89"), t) == "$1.234.567,89"
+async def test_result_amounts_keep_the_cents_the_engine_produced():
+    """Faraid's odd remainders land on half-cents: 1,000,001 shared by a husband
+    and a son is 250,000.25 / 750,000.75. Rounding those to whole dollars, or
+    grouping the '.' of the Decimal as if it were a thousands separator, would
+    quietly change the answer the table gives."""
+    calc, pg, _ = await _page()
+    calc.heirs = {"husband": 1, "son": 1}
+    calc.estate = estate_mod.Estate(gross=1000001)
+    calc._compute()
+    table = _by_key(calc._build_result(), "result-table")
+    cells = [c.value for row in table.controls[2:] for c in row.controls]
+    assert "$250,000.25" in cells
+    assert "$750,000.75" in cells
+
+
+async def test_breakdown_line_follows_the_chosen_currency():
+    calc, pg, loc = await _page()
+    loc.currency = "EUR"
+    calc.heirs = {"son": 1}
+    calc.estate = estate_mod.Estate(gross=1234567, funeral=1000, debts=2000, wasiat=3000)
+    calc._compute()
+    line = next(
+        c.value for c in _walk(calc._build_result())
+        if isinstance(c, ft.Text) and c.value and loc.get("calc.gross") in c.value
+    )
+    assert "1.234.567,00 €" in line
+    assert "1.000,00 €" in line
+
+
+async def test_wasiat_cap_and_excess_follow_the_chosen_currency():
+    calc, pg, loc = await _page()
+    loc.currency = "IDR"
+    calc.heirs = {"son": 1}
+    calc.estate = estate_mod.Estate(gross=1000, wasiat=500)
+    calc._compute()
+    warn = next(
+        c.value for c in _walk(calc._build_result())
+        if isinstance(c, ft.Text) and c.value and loc.get("calc.wasiat_warn") in c.value
+    )
+    assert "333,00 Rp" in warn
+    assert "167,00 Rp" in warn
+
+
+async def test_depleted_claim_follows_the_chosen_currency():
+    calc, pg, loc = await _page()
+    loc.currency = "IDR"
+    calc.heirs = {"son": 1}
+    calc.estate = estate_mod.Estate(gross=100, debts=250)
+    calc._compute()
+    claim = next(
+        c.value for c in _walk(calc._build_result())
+        if isinstance(c, ft.Text) and c.value and loc.get("calc.depleted").split("{")[0] in c.value
+    )
+    assert "150,00 Rp" in claim
+
+
+async def test_residual_note_follows_the_chosen_currency():
+    """The residual is the leftover from flooring each heir's per-person amount,
+    so it is itself a fractional amount and has to survive the same way."""
+    calc, pg, loc = await _page()
+    loc.currency = "IDR"
+    calc.heirs = {"wife": 1, "son": 3}
+    calc.estate = estate_mod.Estate(gross=1000)
+    calc._compute()
+    note = next(
+        c.value for c in _walk(calc._build_result())
+        if isinstance(c, ft.Text) and c.value and loc.get("calc.residual").split("{")[0] in c.value
+    )
+    assert "0,02 Rp" in note
+
+
+async def test_total_column_shows_a_dash_when_there_is_no_amount():
+    """The no-numbers case has no amount to format at all, and '-' is what the
+    columns have always shown; the money formatter must not be handed a None."""
+    calc, pg, _ = await _page()
+    calc.heirs = {"son": 1, "father": 1}
+    calc._compute()
+    table = _by_key(calc._build_result(), "result-table")
+    rows = [[c.value for c in r.controls] for r in table.controls[2:]]
+    assert [row[-1] for row in rows] == ["-", "-"]
+
+
+async def test_each_column_shows_a_dash_when_there_is_no_amount():
+    """Two sons with no numbers entered is the only shape that shows the per-person
+    column at all, and it is exactly the shape where there is no per-person amount."""
+    calc, pg, _ = await _page()
+    calc.heirs = {"son": 2}
+    calc.estate = estate_mod.Estate()
+    calc._compute()
+    table = _by_key(calc._build_result(), "result-table")
+    rows = [[c.value for c in r.controls] for r in table.controls[2:]]
+    assert [row[2:] for row in rows] == [["-", "-"]]
 
 
 async def test_wife_count_disabled_by_default_and_enabled_on_wife():

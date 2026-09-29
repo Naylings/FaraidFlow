@@ -2,7 +2,6 @@
 
 import asyncio
 import math
-from decimal import Decimal
 
 import flet as ft
 
@@ -20,16 +19,6 @@ def _parse_int(text: str) -> int:
         return int("".join(ch for ch in (text or "") if ch.isdigit()) or "0")
     except ValueError:
         return 0
-
-
-def _money(value: Decimal, t) -> str:
-    if value is None:
-        return "-"
-    digits = f"{value:,.2f}"
-    return (
-        t("money.prefix")
-        + digits.replace(".", "\u0000").replace(",", t("money.thousands_sep")).replace("\u0000", t("money.decimal_sep"))
-    )
 
 
 def _equivalence_lines(rows) -> list[str]:
@@ -103,6 +92,16 @@ class CalculationPage:
     def _num(self, control_key, default_text="0"):
         tf = self._tf[control_key]
         return _parse_int(tf.value or default_text)
+
+    def _amount(self, value) -> str:
+        """One amount, in whichever currency settings picked.
+
+        Every amount on this page goes through here, so there is a single money
+        formatter in the app: Localization's. A result with no numbers entered
+        carries no amount at all for the per-person and total columns, and that
+        has always shown as a dash rather than a number.
+        """
+        return "-" if value is None else self.loc.format_money(value)
 
     def _format_estate_field(self, key):
         tf = self._tf[key]
@@ -263,7 +262,7 @@ class CalculationPage:
         if not r.errors and self.estate.net <= 0 and self.estate.has_numbers:
             if self.estate.unpaid > 0:
                 claims.append(ft.Text(
-                    t("calc.depleted").format(amount=_money(Decimal(self.estate.unpaid), t)),
+                    t("calc.depleted").format(amount=self._amount(self.estate.unpaid)),
                     color=ft.Colors.ERROR,
                 ))
             else:
@@ -308,10 +307,10 @@ class CalculationPage:
                     _cell(_fmt_num(row.share * row.count), weights[1][1], numeric=True),
                 ]
                 if show_each:
-                    cells.append(_cell(_money(row.each, t2), weights[2][1], numeric=True))
+                    cells.append(_cell(self._amount(row.each), weights[2][1], numeric=True))
                 cells.append(
                     _cell(
-                        _money(row.amount, t2) if row.amount is not None else "-",
+                        self._amount(row.amount),
                         weights[-1][1],
                         numeric=True,
                     )
@@ -336,17 +335,17 @@ class CalculationPage:
         e = self.estate
         t = self.loc.get
         line = (
-            f"{t('calc.gross')} {_money(Decimal(e.gross), t)} - "
-            f"{t('calc.funeral')} {_money(Decimal(e.funeral), t)} - "
-            f"{t('calc.debts')} {_money(Decimal(e.debts), t)} - "
-            f"{t('calc.wasiat')} {_money(Decimal(e.wasiat), t)} = "
-            f"{t('calc.net')} {_money(Decimal(e.net), t)}"
+            f"{t('calc.gross')} {self._amount(e.gross)} - "
+            f"{t('calc.funeral')} {self._amount(e.funeral)} - "
+            f"{t('calc.debts')} {self._amount(e.debts)} - "
+            f"{t('calc.wasiat')} {self._amount(e.wasiat)} = "
+            f"{t('calc.net')} {self._amount(e.net)}"
         )
         rows = [ft.Text(line, size=12)]
         if not e.wasiat_ok:
             rows.append(ft.Text(
-                f"{t('calc.wasiat_warn')} {t('calc.wasiat_cap')} {_money(Decimal(e.wasiat_cap), t)}"
-                f", {t('calc.wasiat_exc')} {_money(Decimal(e.wasiat_excess), t)}"
+                f"{t('calc.wasiat_warn')} {t('calc.wasiat_cap')} {self._amount(e.wasiat_cap)}"
+                f", {t('calc.wasiat_exc')} {self._amount(e.wasiat_excess)}"
                 f"; {t('calc.wasiat_consent')}",
                 size=12,
                 italic=True,
@@ -411,7 +410,7 @@ class CalculationPage:
             if controls:
                 controls.append(self._detail_gap())
             controls.append(ft.Text(
-                t("calc.residual").format(amount=_money(r.residual, t)), size=12,
+                t("calc.residual").format(amount=self._amount(r.residual)), size=12,
             ))
         return ft.Container(
             ft.ExpansionTile(
