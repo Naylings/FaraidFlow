@@ -13,10 +13,11 @@ MENU = [
 
 
 class HomePage:
-    def __init__(self, page: ft.Page, localization: Localization, on_calculate=None):
+    def __init__(self, page: ft.Page, localization: Localization, on_calculate=None, on_information=None):
         self.page = page
         self.localization = localization
         self.on_calculate = on_calculate
+        self.on_information = on_information
         self._extra_actions: list = []
         self.body = self.build_body()
 
@@ -44,7 +45,7 @@ class HomePage:
                 key=f"menu-{key}",
                 width=260,
                 height=48,
-                on_click=lambda e, k=key: (self.on_calculate() if k == "calculate" and self.on_calculate else self._show_soon(k)),
+                on_click=lambda e, k=key: self._dispatch(k),
             )
             for key, icon in MENU
         ]
@@ -69,6 +70,15 @@ class HomePage:
         self.page.clean()
         self.page.add(self.build())
         self.page.update()
+
+    def _dispatch(self, key: str) -> None:
+        """Send a menu button to its page; anything not wired up yet - About, or
+        a page whose callback has not been passed in - says "coming soon"."""
+        handler = {"calculate": self.on_calculate, "information": self.on_information}.get(key)
+        if handler is None:
+            self._show_soon(key)
+        else:
+            handler()
 
     def _show_soon(self, section: str) -> None:
         self.page.show_dialog(

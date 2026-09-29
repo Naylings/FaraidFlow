@@ -3,6 +3,7 @@ import flet as ft
 from app.localization.localization import THEMES, Localization
 from app.pages.calculate import CalculationPage, is_two_pane
 from app.pages.home import HomePage
+from app.pages.information import InformationPage
 
 # The THEMES codes (light/dark/system) are the ft.ThemeMode member names, lowercased.
 THEME_MODES = {theme["code"]: ft.ThemeMode[theme["code"].upper()] for theme in THEMES}
@@ -24,6 +25,7 @@ async def main(page: ft.Page):
     home = HomePage(page, localization)
     screen = {"name": "home"}
     calc = None
+    info = None
 
     def show_content(control):
         page.clean()
@@ -41,6 +43,8 @@ async def main(page: ft.Page):
         apply_theme(page, localization)
         if screen["name"] == "calc" and calc is not None:
             refresh_calculate()
+        elif screen["name"] == "information" and info is not None:
+            refresh_information()
         else:
             show_home()
 
@@ -67,6 +71,19 @@ async def main(page: ft.Page):
         show_content(root)
         page.update()
 
+    def show_information():
+        nonlocal info
+        info = InformationPage(page, localization, back_home=show_home)
+        screen["name"] = "information"
+        refresh_information()
+
+    def refresh_information():
+        # The page holds no state, so a rebuild is the whole refresh; the appbar
+        # goes with it so the settings button shows the new language.
+        page.appbar = build_appbar()
+        show_content(info.build())
+        page.update()
+
     def on_page_resize(e):
         if (
             screen["name"] == "calc"
@@ -78,6 +95,7 @@ async def main(page: ft.Page):
     page.on_resize = on_page_resize
 
     home.on_calculate = show_calculate
+    home.on_information = show_information
     screen["name"] = "home"
     page.appbar = build_appbar()
     page.add(home.build())
