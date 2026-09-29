@@ -2,7 +2,7 @@
 
 import flet as ft
 
-from app.components.language_button import LanguageButton
+from app.components.settings_button import SettingsButton
 from app.localization.localization import Localization
 
 MENU = [
@@ -25,14 +25,14 @@ class HomePage:
         # Calculate action would silently vanish on any refresh that relies on
         # the default on_change (this method is that default).
         self._extra_actions = list(extra_actions or [])
-        lang_button = LanguageButton(
+        settings_button = SettingsButton(
             page=self.page,
             localization=self.localization,
             on_change=on_change or self.refresh,
         )
         return ft.AppBar(
             title=ft.Text(self.localization.get("home.title")),
-            actions=[lang_button.button, *self._extra_actions],
+            actions=[settings_button.button, *self._extra_actions],
         )
 
     def build_body(self) -> ft.Column:

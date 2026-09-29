@@ -35,7 +35,7 @@ def _find_first(control, ctype):
 
 async def _pick_language_id(page):
     page.appbar.actions[0].on_click(None)
-    id_tile = page.dialogs[0].content.controls[1]
+    id_tile = _find_by_key(page.dialogs[0], "lang-id")
     await id_tile.on_click(None)
 
 
@@ -118,7 +118,7 @@ async def test_appbar_calculate_action_exists_only_on_the_calculate_screen():
     _find_by_key(page.controls[0], "menu-calculate").on_click(None)
     action = _appbar_action(page, "appbar-calculate")
     assert action is not None
-    assert page.appbar.actions[0].key == "lang-button", "language button must stay at index 0"
+    assert page.appbar.actions[0].key == "lang-button", "settings button must stay at index 0"
     assert page.appbar.actions[1] is action
     _find_by_key(page.controls[0], "back-home").on_click(None)
     assert _appbar_action(page, "appbar-calculate") is None

@@ -19,6 +19,12 @@ def _buttons(home):
     return [c for c in home.build_body().controls if isinstance(c, ft.FilledButton)]
 
 
+def _language_tile(dialog, code):
+    """The language list tile inside the settings dialog's first tab page."""
+    pages = dialog.content.content.controls[1]
+    return next(t for t in pages.controls[0].controls if t.key == f"lang-{code}")
+
+
 async def test_english_default_labels():
     home, _ = await _home()
     assert [b.content for b in _buttons(home)] == ["Calculate", "Information", "About"]
@@ -33,7 +39,7 @@ async def test_buttons_have_stable_keys():
     ]
 
 
-async def test_appbar_title_and_language_button():
+async def test_appbar_title_and_settings_button():
     home, _ = await _home()
     appbar = home.build_appbar()
     assert appbar.title.value == "FaraidFlow"
@@ -75,8 +81,7 @@ async def test_appbar_injected_on_change_replaces_refresh():
     assert appbar.actions[0].key == "lang-button"
     page.appbar = appbar
     page.appbar.actions[0].on_click(None)
-    id_tile = page.dialogs[0].content.controls[1]
-    await id_tile.on_click(None)
+    await _language_tile(page.dialogs[0], "id").on_click(None)
     assert calls == ["changed"]
 
 
