@@ -43,7 +43,7 @@ async def test_appbar_title_and_settings_button():
     home, _ = await _home()
     appbar = home.build_appbar()
     assert appbar.title.value == "FaraidFlow"
-    assert appbar.actions[0].key == "lang-button"
+    assert appbar.actions[0].key == "settings-button"
     assert appbar.actions[0].content == "🇬🇧 EN"
 
 
@@ -78,7 +78,7 @@ async def test_appbar_injected_on_change_replaces_refresh():
     home, page = await _home()
     calls = []
     appbar = home.build_appbar(on_change=lambda: calls.append("changed"))
-    assert appbar.actions[0].key == "lang-button"
+    assert appbar.actions[0].key == "settings-button"
     page.appbar = appbar
     page.appbar.actions[0].on_click(None)
     await _language_tile(page.dialogs[0], "id").on_click(None)
@@ -95,12 +95,12 @@ async def test_refresh_preserves_extra_appbar_actions():
     home.build_appbar(extra_actions=[ft.IconButton(key="appbar-calculate")])
     home.refresh()
     keys = [getattr(a, "key", None) for a in page.appbar.actions]
-    assert keys == ["lang-button", "appbar-calculate"], keys
-    assert page.appbar.actions[0].key == "lang-button"
+    assert keys == ["settings-button", "appbar-calculate"], keys
+    assert page.appbar.actions[0].key == "settings-button"
 
 
 async def test_refresh_without_extra_actions_adds_none():
     home, page = await _home()
     home.build_appbar()
     home.refresh()
-    assert [getattr(a, "key", None) for a in page.appbar.actions] == ["lang-button"]
+    assert [getattr(a, "key", None) for a in page.appbar.actions] == ["settings-button"]

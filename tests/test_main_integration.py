@@ -1,7 +1,9 @@
 import flet as ft
+import pytest
 
+from app.localization.localization import STORAGE_KEYS
 from main import main
-from fakes import FakePage
+from fakes import FakePage, FakeStorage
 
 
 def _children(control):
@@ -37,6 +39,18 @@ async def _pick_language_id(page):
     page.appbar.actions[0].on_click(None)
     id_tile = _find_by_key(page.dialogs[0], "lang-id")
     await id_tile.on_click(None)
+
+
+async def _pick_theme(page, code):
+    page.appbar.actions[0].on_click(None)
+    theme_tile = _find_by_key(page.dialogs[0], f"theme-{code}")
+    await theme_tile.on_click(None)
+
+
+def _use_storage(monkeypatch, storage):
+    """main() builds its own ft.SharedPreferences, which needs a live page
+    connection; swap in a fake so a test can seed and inspect what is stored."""
+    monkeypatch.setattr(ft, "SharedPreferences", lambda: storage)
 
 
 def _appbar_action(page, key):
@@ -118,7 +132,7 @@ async def test_appbar_calculate_action_exists_only_on_the_calculate_screen():
     _find_by_key(page.controls[0], "menu-calculate").on_click(None)
     action = _appbar_action(page, "appbar-calculate")
     assert action is not None
-    assert page.appbar.actions[0].key == "lang-button", "settings button must stay at index 0"
+    assert page.appbar.actions[0].key == "settings-button", "settings button must stay at index 0"
     assert page.appbar.actions[1] is action
     _find_by_key(page.controls[0], "back-home").on_click(None)
     assert _appbar_action(page, "appbar-calculate") is None
@@ -206,3 +220,52 @@ async def test_resize_within_one_mode_does_not_rebuild():
     page.width = 1200
     page.on_resize(None)
     assert page.controls[0] is first, "same-mode resize must not rebuild the tree"
+
+
+async def test_app_starts_in_the_system_theme_when_nothing_is_stored():
+    """The theme comes from the stored settings, never from a hardcoded mode."""
+    page = FakePage()
+    await main(page)
+    assert page.theme_mode is ft.ThemeMode.SYSTEM
+
+
+@pytest.mark.parametrize(
+    ("code", "expected"),
+    [
+        ("light", ft.ThemeMode.LIGHT),
+        ("dark", ft.ThemeMode.DARK),
+        ("system", ft.ThemeMode.SYSTEM),
+    ],
+)
+async def test_stored_theme_is_applied_at_startup(monkeypatch, code, expected):
+    storage = FakeStorage()
+    await storage.set(STORAGE_KEYS["theme"], code)
+    _use_storage(monkeypatch, storage)
+    page = FakePage()
+    await main(page)
+    assert page.theme_mode is expected
+
+
+async def test_selecting_a_theme_updates_the_page(monkeypatch):
+    storage = FakeStorage()
+    _use_storage(monkeypatch, storage)
+    page = FakePage()
+    await main(page)
+    assert page.theme_mode is ft.ThemeMode.SYSTEM
+    await _pick_theme(page, "dark")
+    assert page.theme_mode is ft.ThemeMode.DARK
+    assert (await storage.get(STORAGE_KEYS["theme"])) == "dark"
+    assert page.dialogs == []
+
+
+async def test_selecting_a_theme_keeps_the_calculator_and_state(monkeypatch):
+    _use_storage(monkeypatch, FakeStorage())
+    page = FakePage()
+    await main(page)
+    _find_by_key(page.controls[0], "menu-calculate").on_click(None)
+    _find_by_key(page.controls[0], "estate-gross").value = "7000000"
+    await _pick_theme(page, "light")
+    assert page.theme_mode is ft.ThemeMode.LIGHT
+    root = page.controls[0]
+    assert _find_by_key(root, "btn-calculate") is not None
+    assert _find_by_key(root, "estate-gross").value == "7000000"

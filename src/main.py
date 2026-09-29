@@ -1,17 +1,25 @@
 import flet as ft
 
-from app.localization.localization import Localization
+from app.localization.localization import THEMES, Localization
 from app.pages.calculate import CalculationPage, is_two_pane
 from app.pages.home import HomePage
+
+# The THEMES codes (light/dark/system) are the ft.ThemeMode member names, lowercased.
+THEME_MODES = {theme["code"]: ft.ThemeMode[theme["code"].upper()] for theme in THEMES}
+
+
+def apply_theme(page: ft.Page, localization: Localization) -> None:
+    """Put the stored theme on the page; an unknown code falls back to system."""
+    page.theme_mode = THEME_MODES.get(localization.theme, ft.ThemeMode.SYSTEM)
 
 
 async def main(page: ft.Page):
     page.title = "FaraidFlow"
     page.theme = ft.Theme(color_scheme_seed=ft.Colors.GREEN)
-    page.theme_mode = ft.ThemeMode.LIGHT
 
     prefs = ft.SharedPreferences()
     localization = await Localization.load(prefs, default_language="en")
+    apply_theme(page, localization)
 
     home = HomePage(page, localization)
     screen = {"name": "home"}
@@ -26,9 +34,11 @@ async def main(page: ft.Page):
         extra = None
         if screen["name"] == "calc" and calc is not None:
             extra = [calc.build_appbar_action()]
-        return home.build_appbar(on_change=on_language_changed, extra_actions=extra)
+        return home.build_appbar(on_change=on_settings_changed, extra_actions=extra)
 
-    def on_language_changed():
+    def on_settings_changed():
+        # Fires for every settings pick - language, currency or theme.
+        apply_theme(page, localization)
         if screen["name"] == "calc" and calc is not None:
             refresh_calculate()
         else:

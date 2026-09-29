@@ -21,6 +21,8 @@ class FakePage:
         self.controls = []
         self.appbar = None
         self.dialogs = []
+        # main() puts the stored theme here; None means "never applied".
+        self.theme_mode = None
         # Below TWO_PANE_MIN_WIDTH (992), so the default in tests is stacked mode.
         self.width = 800
 

@@ -20,8 +20,8 @@ class SettingsButton:
 
         self.button = ft.TextButton(
             content=self._flag_text(),
-            key="lang-button",
-            tooltip=self.localization.get("language.tooltip"),
+            key="settings-button",
+            tooltip=self.localization.get("settings.title"),
             on_click=lambda e: self.open(),
         )
 

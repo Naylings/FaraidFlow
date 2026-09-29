@@ -135,11 +135,19 @@ async def test_options_follow_the_current_language():
     ]
 
 
+async def test_appbar_button_is_the_settings_button():
+    """It opens all three settings, so it is keyed and tooltipped as settings."""
+    btn = SettingsButton(FakePage(), await _loc(), on_change=lambda: None)
+    assert btn.button.key == "settings-button"
+    assert btn.button.tooltip == "Settings"
+    id_btn = SettingsButton(FakePage(), await _loc("id"), on_change=lambda: None)
+    assert id_btn.button.tooltip == "Pengaturan"
+
+
 async def test_appbar_button_shows_the_language_flag():
     page = FakePage()
     loc = await _loc()
     btn = SettingsButton(page, loc, on_change=lambda: None)
-    assert btn.button.key == "lang-button"
     assert btn.button.content == "🇬🇧 EN"
     await btn.choose_language("id")
     assert SettingsButton(page, loc, lambda: None).button.content == "🇮🇩 ID"
