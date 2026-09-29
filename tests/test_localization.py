@@ -1,10 +1,11 @@
 import pytest
 
-from app.localization.localization import LANGUAGES, Localization
+from app.localization import en, id
+from app.localization.localization import CURRENCIES, LANGUAGES, Localization
 from fakes import FakeStorage
 
-EN_SUBTITLE = "Islamic Inheritance Calculator"
-ID_SUBTITLE = "Ahli Waris"
+EN_SUBTITLE = "Faraid Calculator"
+ID_SUBTITLE = "Kalkulator Faraid"
 
 
 async def test_default_english_when_nothing_saved():
@@ -82,10 +83,10 @@ async def test_sibling_labels_english_drop_indonesian_notes():
     loc = await Localization.load(FakeStorage(), default_language="en")
     assert loc.get("brother_full") == "Full brother"
     assert loc.get("sister_full") == "Full sister"
-    assert loc.get("brother_consang") == "Paternal brother"
-    assert loc.get("sister_consang") == "Paternal sister"
-    assert loc.get("brother_uterine") == "Maternal brother"
-    assert loc.get("sister_uterine") == "Maternal sister"
+    assert loc.get("brother_consang") == "Paternal half-brother"
+    assert loc.get("sister_consang") == "Paternal half-sister"
+    assert loc.get("brother_uterine") == "Maternal half-brother"
+    assert loc.get("sister_uterine") == "Maternal half-sister"
 
 
 async def test_sibling_labels_indonesian_use_saudara_saudari():
@@ -117,3 +118,37 @@ async def test_new_calc_keys_present_both_languages():
     for key in keys:
         assert en.get(key) != key, f"missing EN key {key}"
         assert id.get(key) != key, f"missing ID key {key}"
+
+
+def test_both_langs_have_identical_keys():
+    assert set(en.TRANSLATIONS.keys()) == set(id.TRANSLATIONS.keys())
+
+
+def test_new_keys_exist():
+    required_new = [
+        "settings.title", "settings.language", "settings.currency", "settings.theme",
+        "currency.usd", "currency.idr", "currency.myr", "currency.eur", "currency.sgd",
+        "theme.light", "theme.dark", "theme.system",
+        "info.title", "info.intro.title", "info.intro.body",
+        "info.legal_basis.title", "info.legal_basis.quran", "info.legal_basis.hadith",
+        "info.how_it_works.title", "info.how_it_works.body",
+        "info.glossary.title", "info.glossary.wasiat", "info.glossary.hajb",
+        "info.glossary.aul", "info.glossary.radd", "info.glossary.asabah",
+        "info.glossary.pewaris", "info.glossary.ahli_waris",
+        "info.disclaimer.title", "info.disclaimer.body",
+        "about.title", "about.author", "about.location", "about.credits",
+        "about.license", "about.github", "about.donate", "about.donate_soon",
+    ]
+    for k in required_new:
+        assert k in en.TRANSLATIONS
+        assert k in id.TRANSLATIONS
+
+
+def test_currency_format_money():
+    loc = Localization("en", None)
+    loc.currency = "USD"
+    assert loc.format_money(1234567) == "$1,234,567.00"
+    loc.currency = "IDR"
+    assert loc.format_money(1234567) == "1.234.567,00 Rp"
+    loc.currency = "EUR"
+    assert loc.format_money(1234567) == "1.234.567,00 €"

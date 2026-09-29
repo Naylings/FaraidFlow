@@ -100,7 +100,7 @@ async def test_tree_shows_deceased_and_selected_branches():
     calc._compute()
     texts = [c.value for c in _walk(calc.build()) if isinstance(c, ft.Text)]
     assert "Deceased" in texts or loc.get("calc.deceased") in texts
-    assert "Son" in texts
+    assert "Sons" in texts
 
 
 async def test_form_estate_fields_are_numeric_and_page_scrolls():
@@ -359,7 +359,7 @@ async def test_each_column_shown_when_multiple():
     calc._compute()
     table = _by_key(calc._build_result(), "result-table")
     headers = [c.value for c in table.controls[0].controls]
-    assert headers[-3:] == ["Share", "Each", "Total"]
+    assert headers[-3:] == ["Share", "Per Person", "Total Amount"]
 
 
 async def test_amounts_display_with_dollar_and_two_decimals():
@@ -374,7 +374,7 @@ async def test_amounts_display_with_dollar_and_two_decimals():
 
 async def test_share_column_shows_group_share_not_per_person_share():
     # Wife + 2 sons: wife 1/8, sons share 7/8 between them.
-    # The row is labelled "Son x2" and its Total is the whole group total,
+    # The row is labelled "Sons x2" and its Total is the whole group total,
     # so the Share cell must be the group share (7/8), not the per-person 7/16.
     calc, pg, _ = await _page()
     calc.heirs = {"wife": 1, "son": 2}
@@ -382,7 +382,7 @@ async def test_share_column_shows_group_share_not_per_person_share():
     calc._compute()
     table = _by_key(calc._build_result(), "result-table")
     rows = {r.controls[0].value: [c.value for c in r.controls] for r in table.controls[2:]}
-    assert rows["Son  x2"][1] == "7/8"
+    assert rows["Sons  x2"][1] == "7/8"
     assert rows["Wife"][1] == "1/8"
     # per-person share 7/16 must not leak into the table
     assert all(v[1] != "7/16" for v in rows.values())
