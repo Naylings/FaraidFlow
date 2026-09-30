@@ -42,9 +42,9 @@ def _find_by_key(control, key):
     return None
 
 
-def _detail_tiles(dialog):
-    """Option ListTiles of the currently selected category page."""
-    return _find_by_key(dialog, "settings-detail").content.controls
+def _choice_tiles(choice):
+    """Option ListTiles of an open per-setting choice dialog."""
+    return choice.content.controls
 
 
 def _tile(dialog, key):
@@ -53,7 +53,21 @@ def _tile(dialog, key):
     return tile
 
 
-async def test_settings_dialog_opens_on_language():
+async def _open_choice(btn, code):
+    """Tap a summary value button and hand back the new choice dialog."""
+    page = btn.page
+    before = len(page.dialogs)
+    await _find_by_key(page.dialogs[0], f"setting-value-{code}").on_click(None)
+    assert len(page.dialogs) == before + 1
+    return page.dialogs[-1]
+
+
+def _summary_values(dialog):
+    rows = dialog.content.controls
+    return [r.controls[1].content for r in rows]
+
+
+async def test_settings_dialog_shows_summary_values():
     page = FakePage()
     loc = Localization("en", None)
     btn = SettingsButton(page, loc, on_change=lambda: None)
@@ -61,46 +75,46 @@ async def test_settings_dialog_opens_on_language():
     assert len(page.dialogs) == 1
     dialog = page.dialogs[0]
     assert isinstance(dialog, ft.AlertDialog)
-    cats = [_find_by_key(dialog, k) for k in ("cat-language", "cat-currency", "cat-theme")]
-    assert [c.title.value for c in cats] == ["Language", "Currency", "Theme"]
-    assert cats[0].trailing is not None
-    assert cats[1].trailing is None and cats[2].trailing is None
-    detail = _find_by_key(dialog, "settings-detail")
-    assert [c.key for c in detail.content.controls] == ["lang-en", "lang-id"]
+    rows = dialog.content.controls
+    assert [r.controls[0].value for r in rows] == ["Language", "Currency", "Theme"]
+    assert [r.controls[1].key for r in rows] == [
+        "setting-value-language", "setting-value-currency", "setting-value-theme",
+    ]
+    assert [r.controls[1].content for r in rows] == ["🇬🇧 English", "US Dollar (USD)", "System"]
 
 
-async def test_tapping_currency_category_shows_currency_options():
+async def test_tapping_currency_value_shows_currency_options():
     page = FakePage()
     loc = Localization("en", None)
     btn = SettingsButton(page, loc, on_change=lambda: None)
     btn.open()
-    dialog = page.dialogs[0]
-    await _find_by_key(dialog, "cat-currency").on_click(None)
-    assert _find_by_key(dialog, "cat-currency").trailing is not None
-    assert _find_by_key(dialog, "cat-language").trailing is None
-    detail = _find_by_key(dialog, "settings-detail")
-    assert [c.key for c in detail.content.controls] == [
+    choice = await _open_choice(btn, "currency")
+    assert isinstance(choice, ft.AlertDialog)
+    assert choice.title.value == "Currency"
+    assert [c.key for c in choice.content.controls] == [
         "currency-usd", "currency-idr", "currency-myr", "currency-eur", "currency-sgd",
     ]
+    # the summary underneath stays open
+    assert len(page.dialogs) == 2
 
 
-async def test_choosing_currency_persists_closes_and_notifies():
+async def test_choosing_currency_persists_returns_and_notifies():
     storage = FakeStorage()
     loc = await Localization.load(storage, default_language="en")
     page = FakePage()
     calls = []
     btn = SettingsButton(page, loc, on_change=lambda: calls.append("changed"))
     btn.open()
-    dialog = page.dialogs[0]
-    await _find_by_key(dialog, "cat-currency").on_click(None)
-    await _find_by_key(dialog, "currency-idr").on_click(None)
+    await _find_by_key(page.dialogs[0], "setting-value-currency").on_click(None)
+    await _find_by_key(page.dialogs[1], "currency-idr").on_click(None)
     assert loc.currency == "IDR"
     assert await storage.get("faraidflow.currency") == "IDR"
-    assert page.dialogs == []
+    assert len(page.dialogs) == 1
+    assert _find_by_key(page.dialogs[0], "setting-value-currency").content == "Indonesian Rupiah (IDR)"
     assert calls == ["changed"]
 
 
-def test_settings_button_creates_stacked_categories():
+def test_settings_button_creates_summary_rows():
     page = FakePage()
     btn = SettingsButton(page, Localization("en", None), lambda: None)
     btn.open()
@@ -108,12 +122,14 @@ def test_settings_button_creates_stacked_categories():
     dialog = page.dialogs[0]
     assert dialog is not None
     assert isinstance(dialog, ft.AlertDialog)
-    # dialog content is a column: category master row on top, detail list below
+    # dialog content is a column of summary rows: name label + value button
     assert isinstance(dialog.content, ft.Column)
-    cats = [_find_by_key(dialog, k) for k in ("cat-language", "cat-currency", "cat-theme")]
-    assert len(cats) == 3
-    assert [t.title.value for t in cats] == ["Language", "Currency", "Theme"]
-    assert _find_by_key(dialog, "settings-detail") is not None
+    rows = dialog.content.controls
+    assert len(rows) == 3
+    assert [r.controls[0].value for r in rows] == ["Language", "Currency", "Theme"]
+    assert [r.controls[1].key for r in rows] == [
+        "setting-value-language", "setting-value-currency", "setting-value-theme",
+    ]
 
 
 def test_dialog_title_is_localized():
@@ -124,78 +140,84 @@ def test_dialog_title_is_localized():
 async def test_every_option_is_listed():
     btn = SettingsButton(FakePage(), await _loc(), lambda: None)
     dialog = _open(btn)
-    assert [t.title.value for t in _detail_tiles(dialog)] == [
+    assert [t.title.value for t in _choice_tiles(await _open_choice(btn, "language"))] == [
         "🇬🇧 English",
         "🇮🇩 Bahasa Indonesia",
     ]
-    await _find_by_key(dialog, "cat-currency").on_click(None)
-    assert [t.title.value for t in _detail_tiles(dialog)] == [
+    btn.page.pop_dialog()
+    assert [t.title.value for t in _choice_tiles(await _open_choice(btn, "currency"))] == [
         "US Dollar (USD)",
         "Indonesian Rupiah (IDR)",
         "Malaysian Ringgit (MYR)",
         "Euro (EUR)",
         "Singapore Dollar (SGD)",
     ]
-    await _find_by_key(dialog, "cat-theme").on_click(None)
-    assert [t.title.value for t in _detail_tiles(dialog)] == ["Light", "Dark", "System"]
+    btn.page.pop_dialog()
+    assert [t.title.value for t in _choice_tiles(await _open_choice(btn, "theme"))] == ["Light", "Dark", "System"]
 
 
-async def test_choosing_a_language_persists_closes_and_notifies():
+async def test_choosing_a_language_persists_returns_and_notifies():
     loc = await _loc()
     page = FakePage()
     calls = []
     btn = SettingsButton(page, loc, on_change=lambda: calls.append("changed"))
     dialog = _open(btn)
-    await _tile(dialog, "lang-id").on_click(None)
+    await _tile(dialog, "setting-value-language").on_click(None)
+    await _tile(page.dialogs[1], "lang-id").on_click(None)
     assert loc.language == "id"
     assert (await loc.storage.get(Localization.STORAGE_KEY)) == "id"
     assert calls == ["changed"]
-    assert page.dialogs == []
+    assert len(page.dialogs) == 1
+    assert _summary_values(page.dialogs[0])[0] == "🇮🇩 Bahasa Indonesia"
 
 
-async def test_choosing_a_currency_persists_closes_and_notifies():
+async def test_choosing_a_currency_persists_returns_and_notifies():
     loc = await _loc()
     page = FakePage()
     calls = []
     btn = SettingsButton(page, loc, on_change=lambda: calls.append("changed"))
     dialog = _open(btn)
-    await _tile(dialog, "cat-currency").on_click(None)
-    await _tile(dialog, "currency-eur").on_click(None)
+    await _tile(dialog, "setting-value-currency").on_click(None)
+    await _tile(page.dialogs[1], "currency-eur").on_click(None)
     assert loc.currency == "EUR"
     assert (await loc.storage.get(STORAGE_KEYS["currency"])) == "EUR"
     assert calls == ["changed"]
-    assert page.dialogs == []
+    assert len(page.dialogs) == 1
+    assert _summary_values(page.dialogs[0])[1] == "Euro (EUR)"
 
 
-async def test_choosing_a_theme_persists_closes_and_notifies():
+async def test_choosing_a_theme_persists_returns_and_notifies():
     loc = await _loc()
     page = FakePage()
     calls = []
     btn = SettingsButton(page, loc, on_change=lambda: calls.append("changed"))
     dialog = _open(btn)
-    await _tile(dialog, "cat-theme").on_click(None)
-    await _tile(dialog, "theme-dark").on_click(None)
+    await _tile(dialog, "setting-value-theme").on_click(None)
+    await _tile(page.dialogs[1], "theme-dark").on_click(None)
     assert loc.theme == "dark"
     assert (await loc.storage.get(STORAGE_KEYS["theme"])) == "dark"
     assert calls == ["changed"]
-    assert page.dialogs == []
+    assert len(page.dialogs) == 1
+    assert _summary_values(page.dialogs[0])[2] == "Dark"
 
 
 async def test_current_value_is_the_only_checked_one():
     btn = SettingsButton(FakePage(), await _loc("id", "IDR", "dark"), lambda: None)
-    dialog = _open(btn)
-    for cat, key in (("cat-language", "lang-id"), ("cat-currency", "currency-idr"), ("cat-theme", "theme-dark")):
-        await _tile(dialog, cat).on_click(None)
-        checked = [t.key for t in _detail_tiles(dialog) if t.trailing is not None]
+    _open(btn)
+    for setting, key in (("language", "lang-id"), ("currency", "currency-idr"), ("theme", "theme-dark")):
+        choice = await _open_choice(btn, setting)
+        checked = [t.key for t in _choice_tiles(choice) if t.trailing is not None]
         assert checked == [key]
+        btn.page.pop_dialog()
 
 
 async def test_options_follow_the_current_language():
     btn = SettingsButton(FakePage(), await _loc("id"), lambda: None)
     dialog = _open(btn)
-    assert [_find_by_key(dialog, k).title.value for k in ("cat-language", "cat-currency", "cat-theme")] == ["Bahasa", "Mata Uang", "Tema"]
-    await _tile(dialog, "cat-currency").on_click(None)
-    assert [t.title.value for t in _detail_tiles(dialog)][:2] == [
+    assert [r.controls[0].value for r in dialog.content.controls] == ["Bahasa", "Mata Uang", "Tema"]
+    choice = await _open_choice(btn, "currency")
+    assert choice.title.value == "Mata Uang"
+    assert [t.title.value for t in _choice_tiles(choice)][:2] == [
         "Dolar AS (USD)",
         "Rupiah Indonesia (IDR)",
     ]
@@ -215,6 +237,7 @@ async def test_appbar_button_shows_the_settings_icon():
     loc = await _loc()
     btn = SettingsButton(page, loc, on_change=lambda: None)
     assert btn.button.icon == ft.Icons.SETTINGS
+    btn.open()
     await btn.choose_language("id")
     assert SettingsButton(page, loc, lambda: None).button.icon == ft.Icons.SETTINGS
 
@@ -222,7 +245,56 @@ async def test_appbar_button_shows_the_settings_icon():
 async def test_on_change_is_optional():
     loc = await _loc()
     page = FakePage()
-    dialog = _open(SettingsButton(page, loc, on_change=None))
-    await _tile(dialog, "lang-id").on_click(None)
+    btn = SettingsButton(page, loc, on_change=None)
+    dialog = _open(btn)
+    await _tile(dialog, "setting-value-language").on_click(None)
+    await _tile(page.dialogs[1], "lang-id").on_click(None)
     assert loc.language == "id"
-    assert page.dialogs == []
+    assert len(page.dialogs) == 1
+
+
+async def test_settings_dialog_shows_summary_rows():
+    page = FakePage()
+    loc = Localization("en", None)
+    btn = SettingsButton(page, loc, on_change=lambda: None)
+    btn.open()
+    assert len(page.dialogs) == 1
+    dialog = page.dialogs[0]
+    assert isinstance(dialog, ft.AlertDialog)
+    rows = dialog.content.controls
+    assert [r.controls[0].value for r in rows] == ["Language", "Currency", "Theme"]
+    assert [r.controls[1].key for r in rows] == [
+        "setting-value-language", "setting-value-currency", "setting-value-theme",
+    ]
+    assert [r.controls[1].content for r in rows] == ["🇬🇧 English", "US Dollar (USD)", "System"]
+
+
+async def test_tapping_currency_value_opens_choice_dialog():
+    page = FakePage()
+    loc = Localization("en", None)
+    btn = SettingsButton(page, loc, on_change=lambda: None)
+    btn.open()
+    await _find_by_key(page.dialogs[0], "setting-value-currency").on_click(None)
+    assert len(page.dialogs) == 2
+    choice = page.dialogs[1]
+    assert isinstance(choice, ft.AlertDialog)
+    assert choice.title.value == "Currency"
+    assert [c.key for c in choice.content.controls] == [
+        "currency-usd", "currency-idr", "currency-myr", "currency-eur", "currency-sgd",
+    ]
+
+
+async def test_choosing_currency_returns_to_updated_summary():
+    storage = FakeStorage()
+    loc = await Localization.load(storage, default_language="en")
+    page = FakePage()
+    calls = []
+    btn = SettingsButton(page, loc, on_change=lambda: calls.append("changed"))
+    btn.open()
+    await _find_by_key(page.dialogs[0], "setting-value-currency").on_click(None)
+    await _find_by_key(page.dialogs[1], "currency-idr").on_click(None)
+    assert loc.currency == "IDR"
+    assert await storage.get("faraidflow.currency") == "IDR"
+    assert len(page.dialogs) == 1
+    assert _find_by_key(page.dialogs[0], "setting-value-currency").content == "Indonesian Rupiah (IDR)"
+    assert calls == ["changed"]

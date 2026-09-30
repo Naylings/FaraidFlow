@@ -171,7 +171,8 @@ async def test_main_language_switch_keeps_the_information_page():
     await main(page)
     _by_key(page.controls[0], "menu-information").on_click(None)
     page.appbar.actions[0].on_click(None)
-    id_tile = _by_key(page.dialogs[0], "lang-id")
+    await _by_key(page.dialogs[0], "setting-value-language").on_click(None)
+    id_tile = _by_key(page.dialogs[-1], "lang-id")
     await id_tile.on_click(None)
     root = page.controls[0]
     texts = _texts(root)

@@ -236,7 +236,8 @@ async def test_main_language_switch_keeps_the_about_page():
     await main(page)
     _by_key(page.controls[0], "menu-about").on_click(None)
     page.appbar.actions[0].on_click(None)
-    await _by_key(page.dialogs[0], "lang-id").on_click(None)
+    await _by_key(page.dialogs[0], "setting-value-language").on_click(None)
+    await _by_key(page.dialogs[-1], "lang-id").on_click(None)
     labels = _labels(page.controls[0])
     assert [t for t in labels if t in {id_table.TRANSLATIONS[k] for k in SECTION_LABELS}] == [
         id_table.TRANSLATIONS[k] for k in SECTION_LABELS
@@ -252,7 +253,7 @@ async def test_main_theme_switch_keeps_the_about_page():
     await main(page)
     _by_key(page.controls[0], "menu-about").on_click(None)
     page.appbar.actions[0].on_click(None)
-    await _by_key(page.dialogs[0], "cat-theme").on_click(None)
-    await _by_key(page.dialogs[0], "theme-dark").on_click(None)
+    await _by_key(page.dialogs[0], "setting-value-theme").on_click(None)
+    await _by_key(page.dialogs[-1], "theme-dark").on_click(None)
     assert page.theme_mode is ft.ThemeMode.DARK
     assert "Author" in _labels(page.controls[0])

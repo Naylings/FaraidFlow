@@ -28,10 +28,16 @@ async def test_version_line_comes_from_the_version_it_was_given():
     assert version_line.size == 12, "the version line keeps its own quiet styling"
 
 
-def _language_tile(dialog, code):
-    """The language list tile inside the settings dialog's detail area."""
-    detail = next(c for c in dialog.content.controls if getattr(c, "key", None) == "settings-detail")
-    return next(t for t in detail.content.controls if t.key == f"lang-{code}")
+async def _pick_language_option(page, code):
+    """Tap the language value in the summary, then hand back the option tile
+    from the per-setting choice dialog."""
+    summary = page.dialogs[0]
+    value_button = next(
+        r.controls[1] for r in summary.content.controls if r.controls[1].key == "setting-value-language"
+    )
+    await value_button.on_click(None)
+    choice = page.dialogs[-1]
+    return next(t for t in choice.content.controls if t.key == f"lang-{code}")
 
 
 async def test_english_default_labels():
@@ -99,7 +105,7 @@ async def test_appbar_injected_on_change_replaces_refresh():
     assert appbar.actions[0].key == "settings-button"
     page.appbar = appbar
     page.appbar.actions[0].on_click(None)
-    await _language_tile(page.dialogs[0], "id").on_click(None)
+    await (await _pick_language_option(page, "id")).on_click(None)
     assert calls == ["changed"]
 
 

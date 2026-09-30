@@ -38,21 +38,22 @@ def _find_first(control, ctype):
 
 async def _pick_language_id(page):
     page.appbar.actions[0].on_click(None)
-    id_tile = _find_by_key(page.dialogs[0], "lang-id")
+    await _find_by_key(page.dialogs[0], "setting-value-language").on_click(None)
+    id_tile = _find_by_key(page.dialogs[-1], "lang-id")
     await id_tile.on_click(None)
 
 
 async def _pick_theme(page, code):
     page.appbar.actions[0].on_click(None)
-    await _find_by_key(page.dialogs[0], "cat-theme").on_click(None)
-    theme_tile = _find_by_key(page.dialogs[0], f"theme-{code}")
+    await _find_by_key(page.dialogs[0], "setting-value-theme").on_click(None)
+    theme_tile = _find_by_key(page.dialogs[-1], f"theme-{code}")
     await theme_tile.on_click(None)
 
 
 async def _pick_currency(page, code):
     page.appbar.actions[0].on_click(None)
-    await _find_by_key(page.dialogs[0], "cat-currency").on_click(None)
-    currency_tile = _find_by_key(page.dialogs[0], f"currency-{code}")
+    await _find_by_key(page.dialogs[0], "setting-value-currency").on_click(None)
+    currency_tile = _find_by_key(page.dialogs[-1], f"currency-{code}")
     await currency_tile.on_click(None)
 
 
@@ -278,7 +279,7 @@ async def test_selecting_a_theme_updates_the_page(monkeypatch):
     await _pick_theme(page, "dark")
     assert page.theme_mode is ft.ThemeMode.DARK
     assert (await storage.get(STORAGE_KEYS["theme"])) == "dark"
-    assert page.dialogs == []
+    assert len(page.dialogs) == 1, "the choice closes, the summary stays open"
 
 
 async def test_selecting_a_theme_keeps_the_calculator_and_state(monkeypatch):
@@ -296,18 +297,19 @@ async def test_selecting_a_theme_keeps_the_calculator_and_state(monkeypatch):
 
 async def test_settings_currency_choice_persists_and_reopens_checked(monkeypatch):
     """The brief's settings bullet at main level: open settings, pick a
-    currency, it persists and closes; reopening shows it as the checked one."""
+    currency, it persists and the choice closes; reopening shows it as the
+    checked one."""
     storage = FakeStorage()
     _use_storage(monkeypatch, storage)
     page = FakePage()
     await main(page)
     await _pick_currency(page, "idr")
     assert (await storage.get(STORAGE_KEYS["currency"])) == "IDR"
-    assert page.dialogs == []
-    page.appbar.actions[0].on_click(None)
-    await _find_by_key(page.dialogs[0], "cat-currency").on_click(None)
-    assert _find_by_key(page.dialogs[0], "currency-idr").trailing is not None
-    assert _find_by_key(page.dialogs[0], "currency-usd").trailing is None
+    assert len(page.dialogs) == 1, "the choice closes, the summary stays open"
+    await _find_by_key(page.dialogs[0], "setting-value-currency").on_click(None)
+    assert len(page.dialogs) == 2
+    assert _find_by_key(page.dialogs[1], "currency-idr").trailing is not None
+    assert _find_by_key(page.dialogs[1], "currency-usd").trailing is None
 
 
 async def test_currency_change_rerenders_calculate_amounts(monkeypatch):
