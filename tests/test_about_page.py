@@ -181,6 +181,16 @@ def test_read_version_falls_back_when_the_file_is_missing(tmp_path):
     assert read_version(tmp_path / "pyproject.toml") == FALLBACK_VERSION
 
 
+def test_the_fallback_is_the_version_pyproject_declares():
+    """The fallback is what every released build shows, because `flet build`
+    ships no pyproject.toml - so it is a real version, and the one the project
+    declares. The two are duplicated on purpose (a bundle cannot read the file
+    it was built from); this test is what keeps them in step at release time."""
+    declared = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]["version"]
+    assert FALLBACK_VERSION == declared
+    assert FALLBACK_VERSION != "unknown", "a user-visible 'vunknown' tells them nothing"
+
+
 def test_read_version_falls_back_when_the_file_cannot_be_read(tmp_path):
     unreadable = tmp_path / "pyproject.toml"
     unreadable.mkdir()
@@ -215,6 +225,19 @@ async def test_main_shows_the_version_declared_in_pyproject():
     _by_key(page.controls[0], "menu-about").on_click(None)
     declared = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]["version"]
     assert f"{APP_NAME} v{declared}" in _labels(page.controls[0])
+
+
+async def test_home_and_about_show_the_same_version():
+    """main() reads the version once and both screens render that one value, so
+    the home line and the About page can never disagree."""
+    page = FakePage()
+    await main(page)
+    home_version = _by_key(page.controls[0], "home-version")
+    assert home_version is not None, "the home screen keeps its version line"
+    _by_key(page.controls[0], "menu-about").on_click(None)
+    assert f"{APP_NAME} {home_version.value}" in _labels(page.controls[0])
+    _by_key(page.controls[0], "back-home").on_click(None)
+    assert _by_key(page.controls[0], "home-version").value == home_version.value
 
 
 async def test_main_language_switch_keeps_the_about_page():

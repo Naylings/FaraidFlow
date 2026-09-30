@@ -1,7 +1,7 @@
+import tomllib
 from pathlib import Path
 
 import flet as ft
-import tomllib
 
 from app.localization.localization import THEMES, Localization
 from app.pages.about import APP_NAME, AboutPage
@@ -17,7 +17,12 @@ THEME_MODES = {theme["code"]: ft.ThemeMode[theme["code"].upper()] for theme in T
 # root. A build also has no pyproject.toml next to the source at all, so every
 # failure below is expected rather than exceptional.
 PYPROJECT = Path(__file__).resolve().parent.parent / "pyproject.toml"
-FALLBACK_VERSION = "unknown"
+# The version a packaged build shows, since it has no pyproject.toml to read.
+# This duplicates [project] version above on purpose - it is the price of the
+# About page saying anything in a bundle - so it MUST be bumped in step with
+# pyproject.toml, and test_the_fallback_is_the_version_pyproject_declares fails
+# the build if it is not.
+FALLBACK_VERSION = "0.1.0-beta.1"
 
 
 def read_version(pyproject: Path | None = None) -> str:
@@ -50,8 +55,10 @@ async def main(page: ft.Page):
     localization = await Localization.load(prefs, default_language="en")
     apply_theme(page, localization)
 
-    home = HomePage(page, localization)
+    # Read once: the home line and the About page both render this value, so
+    # the two screens cannot drift apart.
     version = read_version()
+    home = HomePage(page, localization, version=version)
     screen = {"name": "home"}
     calc = None
     info = None

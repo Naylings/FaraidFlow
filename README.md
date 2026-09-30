@@ -26,8 +26,7 @@ Dua bahasa: **Indonesia** dan **Inggris**.
 
 ## Status
 
-Saat ini **hanya layar "Hitung"** yang berfungsi. Menu **Informasi** dan
-**Tentang** sudah ada di beranda tapi masih menampilkan "Segera hadir".
+Layar **Hitung**, **Informasi**, dan **Tentang** sudah berfungsi dan dapat diakses dari beranda.
 
 ## Fitur
 

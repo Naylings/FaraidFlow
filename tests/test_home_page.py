@@ -5,18 +5,27 @@ from app.pages.home import HomePage
 from fakes import FakePage, FakeStorage
 
 
-async def _home(language="en"):
+async def _home(language="en", version="0.1.0-beta.1"):
     storage = FakeStorage()
     if language != "en":
         await storage.set(Localization.STORAGE_KEY, language)
     loc = await Localization.load(storage, default_language="en")
     page = FakePage()
-    home = HomePage(page, loc)
+    home = HomePage(page, loc, version=version)
     return home, page
 
 
 def _buttons(home):
     return [c for c in home.build_body().controls if isinstance(c, ft.FilledButton)]
+
+
+async def test_version_line_comes_from_the_version_it_was_given():
+    """The home line used to hardcode "v0.1", a second version source that
+    disagreed with pyproject.toml and with the About page."""
+    home, _ = await _home(version="9.9.9")
+    version_line = next(c for c in home.build_body().controls if getattr(c, "key", None) == "home-version")
+    assert version_line.value == "v9.9.9"
+    assert version_line.size == 12, "the version line keeps its own quiet styling"
 
 
 def _language_tile(dialog, code):

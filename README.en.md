@@ -25,8 +25,7 @@ Two languages: **Indonesian** and **English**.
 
 ## Status
 
-Only the **Calculate** screen works today. **Information** and **About** exist
-on the home screen but still say "coming soon".
+The **Calculate**, **Information**, and **About** screens are all functional and accessible from the home screen.
 
 ## Features
 

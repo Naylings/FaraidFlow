@@ -3,7 +3,7 @@ name = "ahli-waris"
 version = "0.1.0-beta.1"
 description = "Kalkulator pewarisan Islam (faraid) dengan dukungan bahasa Indonesia dan Inggris"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     { name = "Naylings" }
 ]

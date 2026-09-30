@@ -13,12 +13,16 @@ MENU = [
 
 
 class HomePage:
-    def __init__(self, page: ft.Page, localization: Localization, on_calculate=None, on_information=None, on_about=None):
+    def __init__(self, page: ft.Page, localization: Localization, on_calculate=None, on_information=None, on_about=None, *, version: str):
         self.page = page
         self.localization = localization
         self.on_calculate = on_calculate
         self.on_information = on_information
         self.on_about = on_about
+        # The same string the About page shows, passed in rather than written
+        # here: a hardcoded "v0.1" on this screen was a second version source
+        # that quietly disagreed with the project's own.
+        self.version = version
         self._extra_actions: list = []
         self.body = self.build_body()
 
@@ -56,7 +60,7 @@ class HomePage:
                 ft.Text(t("home.subtitle"), size=18, italic=True),
                 ft.Container(height=16),
                 *buttons,
-                ft.Text("v0.1", size=12),
+                ft.Text(f"v{self.version}", size=12, key="home-version"),
             ],
             spacing=12,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,

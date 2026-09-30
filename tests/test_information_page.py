@@ -140,7 +140,7 @@ async def test_back_button_is_a_noop_without_a_callback():
 async def test_home_information_button_routes_to_the_page():
     calls = []
     page = FakePage()
-    home = HomePage(page, await Localization.load(FakeStorage()), on_information=lambda: calls.append("info"))
+    home = HomePage(page, await Localization.load(FakeStorage()), on_information=lambda: calls.append("info"), version="0.1.0-beta.1")
     _by_key(home.build(), "menu-information").on_click(None)
     assert calls == ["info"]
     assert page.dialogs == [], "Information is no longer a 'coming soon' screen"
@@ -149,7 +149,7 @@ async def test_home_information_button_routes_to_the_page():
 async def test_home_about_button_routes_to_the_page():
     calls = []
     page = FakePage()
-    home = HomePage(page, await Localization.load(FakeStorage()), on_about=lambda: calls.append("about"))
+    home = HomePage(page, await Localization.load(FakeStorage()), on_about=lambda: calls.append("about"), version="0.1.0-beta.1")
     _by_key(home.build(), "menu-about").on_click(None)
     assert calls == ["about"]
     assert page.dialogs == [], "About is no longer a 'coming soon' screen"
