@@ -47,6 +47,23 @@ async def _pick_theme(page, code):
     await theme_tile.on_click(None)
 
 
+async def _pick_currency(page, code):
+    page.appbar.actions[0].on_click(None)
+    currency_tile = _find_by_key(page.dialogs[0], f"currency-{code}")
+    await currency_tile.on_click(None)
+
+
+def _result_text(root):
+    table = _find_by_key(root, "result-table")
+    texts = []
+    for row in table.controls:
+        for cell in getattr(row, "controls", []) or []:
+            value = getattr(cell, "value", None)
+            if isinstance(value, str):
+                texts.append(value)
+    return " ".join(texts)
+
+
 def _use_storage(monkeypatch, storage):
     """main() builds its own ft.SharedPreferences, which needs a live page
     connection; swap in a fake so a test can seed and inspect what is stored."""
@@ -269,3 +286,39 @@ async def test_selecting_a_theme_keeps_the_calculator_and_state(monkeypatch):
     root = page.controls[0]
     assert _find_by_key(root, "btn-calculate") is not None
     assert _find_by_key(root, "estate-gross").value == "7000000"
+
+
+async def test_settings_currency_choice_persists_and_reopens_checked(monkeypatch):
+    """The brief's settings bullet at main level: open settings, pick a
+    currency, it persists and closes; reopening shows it as the checked one."""
+    storage = FakeStorage()
+    _use_storage(monkeypatch, storage)
+    page = FakePage()
+    await main(page)
+    await _pick_currency(page, "idr")
+    assert (await storage.get(STORAGE_KEYS["currency"])) == "IDR"
+    assert page.dialogs == []
+    page.appbar.actions[0].on_click(None)
+    assert _find_by_key(page.dialogs[0], "currency-idr").trailing is not None
+    assert _find_by_key(page.dialogs[0], "currency-usd").trailing is None
+
+
+async def test_currency_change_rerenders_calculate_amounts(monkeypatch):
+    """Currency pick on the calculate screen rebuilds the result table in the
+    new currency, keeping the computed result (not a cleared form)."""
+    _use_storage(monkeypatch, FakeStorage())
+    page = FakePage()
+    await main(page)
+    _find_by_key(page.controls[0], "menu-calculate").on_click(None)
+    root = page.controls[0]
+    _find_by_key(root, "estate-gross").value = "6000000"
+    _find_first(root, ft.RadioGroup).value = "husband"
+    _find_by_key(root, "btn-calculate").on_click(None)
+    assert _find_by_key(root, "result-table") is not None
+    assert "$" in _result_text(root)
+    await _pick_currency(page, "idr")
+    root = page.controls[0]
+    assert _find_by_key(root, "result-table") is not None
+    amounts = _result_text(root)
+    assert "$" not in amounts
+    assert "Rp" in amounts
