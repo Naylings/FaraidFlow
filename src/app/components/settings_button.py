@@ -44,6 +44,17 @@ class SettingsButton:
             "theme": self._option_tuples_theme(),
         }
         self._value_buttons = {}
+        self._dialog = ft.AlertDialog(
+            title=ft.Text(t("settings.title")),
+            content=self._summary_content(),
+        )
+        self.page.show_dialog(self._dialog)
+
+    def _summary_content(self) -> ft.Column:
+        """Fresh summary rows from current state. Always rebuilt, never
+        mutated: the client patch diff picks up replaced objects, while an
+        in-place .content assignment on a mounted button never reaches the
+        screen (the dialog kept showing the old value)."""
         rows = []
         for code in ("language", "currency", "theme"):
             button = ft.TextButton(
@@ -60,11 +71,7 @@ class SettingsButton:
                 spacing=8,
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             ))
-        self._dialog = ft.AlertDialog(
-            title=ft.Text(t("settings.title")),
-            content=ft.Column(rows, spacing=4, width=DIALOG_WIDTH),
-        )
-        self.page.show_dialog(self._dialog)
+        return ft.Column(rows, spacing=4, width=DIALOG_WIDTH)
 
     def _current_label(self, code: str) -> str:
         """Display label of the current value, from the same tuples the choice
@@ -188,7 +195,8 @@ class SettingsButton:
         # pop_dialog removes the top of the stack — the choice dialog. The
         # summary underneath stays open.
         self.page.pop_dialog()
-        self._value_buttons[code].content = self._current_label(code)
+        # Rebuild (don't mutate): see _summary_content.
+        self._dialog.content = self._summary_content()
         # page.update pushes to a live page; FakePage absorbs it. Never
         # dialog.update() — it raises RuntimeError when unmounted (tests).
         self.page.update(self._dialog)

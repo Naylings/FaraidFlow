@@ -311,3 +311,21 @@ async def test_settings_dialogs_share_fixed_width_with_aligned_columns():
         assert row.controls[0].text_align == ft.TextAlign.LEFT
     await _find_by_key(dialog, "setting-value-currency").on_click(None)
     assert page.dialogs[1].content.width == 320
+
+async def test_pick_rebuilds_summary_content():
+    # Regression: assigning .content in place on the mounted summary button
+    # produced no client patch, so the dialog kept showing the old value
+    # while the app behind it changed. Rebuilding the content (new objects)
+    # is what the patch diff picks up — the same rebuild pattern home.py
+    # and calculate.py use everywhere.
+    storage = FakeStorage()
+    loc = await Localization.load(storage, default_language="en")
+    page = FakePage()
+    btn = SettingsButton(page, loc, on_change=lambda: None)
+    btn.open()
+    before = page.dialogs[0].content
+    await _find_by_key(page.dialogs[0], "setting-value-currency").on_click(None)
+    await _find_by_key(page.dialogs[1], "currency-idr").on_click(None)
+    after = page.dialogs[0].content
+    assert after is not before
+    assert _find_by_key(page.dialogs[0], "setting-value-currency").content == "Indonesian Rupiah (IDR)"
