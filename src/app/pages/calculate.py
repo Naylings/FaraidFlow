@@ -8,17 +8,25 @@ import flet as ft
 from app.calculation import engine, heirs
 from app.calculation import estate as estate_mod
 from app.localization.localization import Localization
-
-
-def _fmt_int(n: int) -> str:
-    return f"{n:,}"
-
-
-def _parse_int(text: str) -> int:
-    try:
-        return int("".join(ch for ch in (text or "") if ch.isdigit()) or "0")
-    except ValueError:
-        return 0
+from app.ui.calculate.shared import (
+    CARD_PADDING,
+    GUTTER,
+    LABEL_WIDTH,
+    MIN_CHECKBOX_WIDTH,
+    MIN_FIELD_WIDTH,
+    MIN_SPOUSE_INLINE_WIDTH,
+    _cell,
+    _chip_label,
+    _empty_hint,
+    _fmt_int,
+    _fmt_num,
+    _inset,
+    _label,
+    _pairs,
+    _parse_int,
+    format_amount,
+    is_two_pane,
+)
 
 
 def _equivalence_lines(rows) -> list[str]:
@@ -33,46 +41,6 @@ def _equivalence_lines(rows) -> list[str]:
         num = group * lcm
         out.append(f"{_fmt_num(group)} = {num.numerator}/{lcm}")
     return out
-
-
-LABEL_WIDTH = 150
-GUTTER = 8
-CARD_PADDING = 16
-# Narrowest entry still worth showing next to a 150px label. This is a comfort
-# threshold, not a correctness one: the field carries `expand`, so it can never
-# overflow its cell whatever this is set to. Below it the two fields would leave
-# the entry around 60-90px, which is too cramped to type into.
-MIN_FIELD_WIDTH = 100
-# A parent row is only a checkbox and its own short label, so it needs far less
-# than a 150px text label plus an entry. Using the text-field threshold for it
-# stacked the parents on a phone even though they fitted side by side.
-MIN_CHECKBOX_WIDTH = 130
-# The three spouse radios side by side with the dropdown need roughly 400px of
-# pane. Below that the dropdown goes underneath. Deliberately a little generous:
-# overshooting only puts the dropdown under the radios on a medium screen, while
-# undershooting would cut it off screen. The radios wrap regardless, so a
-# misjudged threshold can never overflow.
-MIN_SPOUSE_INLINE_WIDTH = 420
-
-
-def _label(text: str) -> ft.Text:
-    return ft.Text(
-        text,
-        width=LABEL_WIDTH,
-        no_wrap=True,
-        overflow=ft.TextOverflow.ELLIPSIS,
-    )
-
-
-TWO_PANE_MIN_WIDTH = 992
-
-
-def is_two_pane(width) -> bool:
-    return width is not None and width >= TWO_PANE_MIN_WIDTH
-
-
-def _pairs(keys):
-    return [tuple(keys[i:i + 2]) for i in range(0, len(keys), 2)]
 
 
 class CalculationPage:
@@ -92,16 +60,6 @@ class CalculationPage:
     def _num(self, control_key, default_text="0"):
         tf = self._tf[control_key]
         return _parse_int(tf.value or default_text)
-
-    def _amount(self, value) -> str:
-        """One amount, in whichever currency settings picked.
-
-        Every amount on this page goes through here, so there is a single money
-        formatter in the app: Localization's. A result with no numbers entered
-        carries no amount at all for the per-person and total columns, and that
-        has always shown as a dash rather than a number.
-        """
-        return "-" if value is None else self.loc.format_money(value)
 
     def _format_estate_field(self, key):
         tf = self._tf[key]
@@ -194,7 +152,7 @@ class CalculationPage:
                 continue
             chips = ft.Column([
                 ft.Chip(
-                    label=self._chip_label(t(k) + (f" x{c}" if c > 1 else "")),
+                    label=_chip_label(t(k) + (f" x{c}" if c > 1 else "")),
                     bgcolor=ft.Colors.SURFACE_CONTAINER,
                     disabled=k in blocked,
                     tooltip=(
@@ -213,7 +171,7 @@ class CalculationPage:
                 expand=1,
             ))
         root = ft.Chip(
-            label=self._chip_label(t("calc.deceased")),
+            label=_chip_label(t("calc.deceased")),
             bgcolor=ft.Colors.PRIMARY_CONTAINER,
             tooltip=t("calc.deceased"),
         )
@@ -239,11 +197,6 @@ class CalculationPage:
             expand=True,
         ))
 
-    @staticmethod
-    def _chip_label(value: str) -> ft.Text:
-        """Chip text must never spill past its column and overlap a neighbour."""
-        return ft.Text(value, no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS)
-
     def _build_result(self) -> ft.Column:
         r = self.calc_result
         t = self.loc.get
@@ -264,7 +217,7 @@ class CalculationPage:
         if not r.errors and self.estate.net <= 0 and self.estate.has_numbers:
             if self.estate.unpaid > 0:
                 claims.append(ft.Text(
-                    t("calc.depleted").format(amount=self._amount(self.estate.unpaid)),
+                    t("calc.depleted").format(amount=format_amount(self.loc, self.estate.unpaid)),
                     color=ft.Colors.ERROR,
                 ))
             else:
@@ -280,18 +233,6 @@ class CalculationPage:
             if show_each:
                 weights.append(("calc.col_each", 2))
             weights.append(("calc.col_total", 2))
-
-            def _cell(value, weight, bold=False, numeric=False):
-                return ft.Text(
-                    value,
-                    size=12,
-                    weight=ft.FontWeight.BOLD if bold else None,
-                    expand=weight,
-                    text_align=ft.TextAlign.RIGHT if numeric else ft.TextAlign.LEFT,
-                    no_wrap=True,
-                    overflow=ft.TextOverflow.ELLIPSIS,
-                    tooltip=value,
-                )
 
             table_rows = [
                 ft.Row(
@@ -309,10 +250,10 @@ class CalculationPage:
                     _cell(_fmt_num(row.share * row.count), weights[1][1], numeric=True),
                 ]
                 if show_each:
-                    cells.append(_cell(self._amount(row.each), weights[2][1], numeric=True))
+                    cells.append(_cell(format_amount(self.loc, row.each), weights[2][1], numeric=True))
                 cells.append(
                     _cell(
-                        self._amount(row.amount),
+                        format_amount(self.loc, row.amount),
                         weights[-1][1],
                         numeric=True,
                     )
@@ -344,7 +285,7 @@ class CalculationPage:
                 spacing=8,
             )
             blocks.append(ft.Container(
-                ft.Column([header, ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT), self._empty_hint()], key="result-table", spacing=6),
+                ft.Column([header, ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT), _empty_hint(t)], key="result-table", spacing=6),
                 padding=ft.Padding.only(left=16, right=16),
             ))
         blocks.append(self._build_details(r))
@@ -359,22 +300,22 @@ class CalculationPage:
         e = self.estate
         t = self.loc.get
         line = (
-            f"{t('calc.gross')} {self._amount(e.gross)} - "
-            f"{t('calc.funeral')} {self._amount(e.funeral)} - "
-            f"{t('calc.debts')} {self._amount(e.debts)} - "
-            f"{t('calc.wasiat')} {self._amount(e.wasiat)} = "
-            f"{t('calc.net')} {self._amount(e.net)}"
+            f"{t('calc.gross')} {format_amount(self.loc, e.gross)} - "
+            f"{t('calc.funeral')} {format_amount(self.loc, e.funeral)} - "
+            f"{t('calc.debts')} {format_amount(self.loc, e.debts)} - "
+            f"{t('calc.wasiat')} {format_amount(self.loc, e.wasiat)} = "
+            f"{t('calc.net')} {format_amount(self.loc, e.net)}"
         )
         rows = [ft.Text(line, size=12)]
         if not e.wasiat_ok:
             rows.append(ft.Text(
-                f"{t('calc.wasiat_warn')} {t('calc.wasiat_cap')} {self._amount(e.wasiat_cap)}"
-                f", {t('calc.wasiat_exc')} {self._amount(e.wasiat_excess)}"
+                f"{t('calc.wasiat_warn')} {t('calc.wasiat_cap')} {format_amount(self.loc, e.wasiat_cap)}"
+                f", {t('calc.wasiat_exc')} {format_amount(self.loc, e.wasiat_excess)}"
                 f"; {t('calc.wasiat_consent')}",
                 size=12,
                 italic=True,
             ))
-        return self._inset(ft.Column(rows, spacing=4))
+        return _inset(ft.Column(rows, spacing=4))
 
     def _build_notes(self) -> ft.Container:
         r = self.calc_result
@@ -390,21 +331,10 @@ class CalculationPage:
         if r.unassigned is not None:
             notes.append(t("calc.unassigned"))
         if not notes:
-            return self._inset(ft.Column([], spacing=0))
-        return self._inset(
+            return _inset(ft.Column([], spacing=0))
+        return _inset(
             ft.Column([ft.Text("\n".join(f"• {n}" for n in notes), size=12, italic=True)], spacing=0)
         )
-
-    @staticmethod
-    def _inset(block: ft.Control) -> ft.Container:
-        """Same 16px left/right inset the table, the tree card and the details tile
-        use, so every block in the result pane starts on the same left edge. The
-        estate arithmetic line was the last one still running to the bezel."""
-        return ft.Container(block, padding=ft.Padding.only(left=16, right=16))
-
-    def _empty_hint(self) -> ft.Text:
-        """One shared clarification line for blocks with no data yet."""
-        return ft.Text(self.loc.get("calc.empty_hint"), size=12, italic=True)
 
     def _empty_tree_card(self) -> ft.Card:
         t = self.loc.get
@@ -412,7 +342,7 @@ class CalculationPage:
             ft.Column([
                 ft.Text(t("calc.tree"), weight=ft.FontWeight.BOLD, size=15),
                 ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT),
-                self._empty_hint(),
+                _empty_hint(t),
             ], spacing=10),
             padding=16,
             expand=True,
@@ -450,10 +380,10 @@ class CalculationPage:
             if controls:
                 controls.append(self._detail_gap())
             controls.append(ft.Text(
-                t("calc.residual").format(amount=self._amount(r.residual)), size=12,
+                t("calc.residual").format(amount=format_amount(self.loc, r.residual)), size=12,
             ))
         if not controls:
-            controls.append(self._empty_hint())
+            controls.append(_empty_hint(t))
         return ft.Container(
             ft.ExpansionTile(
                 key="calc-details",
@@ -737,9 +667,3 @@ def _keep_a_number(field):
     canonical = str(int(digits)) if digits else "0"
     if field.value != canonical:
         field.value = canonical
-
-
-def _fmt_num(frac) -> str:
-    if frac.denominator == 1:
-        return str(frac.numerator)
-    return f"{frac.numerator}/{frac.denominator}"
