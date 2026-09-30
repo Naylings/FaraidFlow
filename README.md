@@ -117,8 +117,8 @@ Play. Untuk distribusi Play Store nanti perlu keystore rilis.
 Butuh Python 3.10+ dan [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone https://github.com/Naylings/ahli-waris.git
-cd ahli-waris
+git clone https://github.com/Naylings/FaraidFlow.git
+cd FaraidFlow
 uv sync
 uv run flet run
 ```

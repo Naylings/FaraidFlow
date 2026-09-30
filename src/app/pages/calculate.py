@@ -418,7 +418,7 @@ class CalculationPage:
             expand=True,
         ))
 
-    def _build_details(self, r) -> ft.ExpansionTile:
+    def _build_details(self, r) -> ft.Container:
         t = self.loc.get
         eq = _equivalence_lines(r.rows)
         controls = []

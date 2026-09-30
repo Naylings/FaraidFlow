@@ -117,8 +117,8 @@ needs a release keystore later.
 Requires Python 3.10+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone https://github.com/Naylings/ahli-waris.git
-cd ahli-waris
+git clone https://github.com/Naylings/FaraidFlow.git
+cd FaraidFlow
 uv sync
 uv run flet run
 ```

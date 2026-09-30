@@ -77,7 +77,7 @@ async def test_version_from_pyproject_reaches_the_page():
     assert f"{APP_NAME} v0.1.0-beta.2" in _labels(about.build()), "the version passed in is the version shown"
 
 
-async def test_the_seven_rows_render_in_reading_order():
+async def test_the_six_rows_render_in_reading_order():
     """Spec order: app+version, author, location, credits, license, github."""
     about = await _about()
     labels = _labels(about.build())
