@@ -44,12 +44,14 @@ async def _pick_language_id(page):
 
 async def _pick_theme(page, code):
     page.appbar.actions[0].on_click(None)
+    await _find_by_key(page.dialogs[0], "cat-theme").on_click(None)
     theme_tile = _find_by_key(page.dialogs[0], f"theme-{code}")
     await theme_tile.on_click(None)
 
 
 async def _pick_currency(page, code):
     page.appbar.actions[0].on_click(None)
+    await _find_by_key(page.dialogs[0], "cat-currency").on_click(None)
     currency_tile = _find_by_key(page.dialogs[0], f"currency-{code}")
     await currency_tile.on_click(None)
 
@@ -303,6 +305,7 @@ async def test_settings_currency_choice_persists_and_reopens_checked(monkeypatch
     assert (await storage.get(STORAGE_KEYS["currency"])) == "IDR"
     assert page.dialogs == []
     page.appbar.actions[0].on_click(None)
+    await _find_by_key(page.dialogs[0], "cat-currency").on_click(None)
     assert _find_by_key(page.dialogs[0], "currency-idr").trailing is not None
     assert _find_by_key(page.dialogs[0], "currency-usd").trailing is None
 

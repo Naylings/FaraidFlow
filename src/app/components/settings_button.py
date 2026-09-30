@@ -6,9 +6,9 @@ from app.localization.localization import CURRENCIES, LANGUAGES, THEMES
 
 
 class SettingsButton:
-    """AppBar button that opens a tabbed settings dialog.
+    """AppBar button that opens a stacked master/detail settings dialog.
 
-    Each tab (language, currency, theme) is a single-choice list: picking an
+    Each category (language, currency, theme) is a single-choice list: picking an
     option persists it immediately, closes the dialog and calls on_change() so
     the app can re-render with the new value.
     """
@@ -27,27 +27,56 @@ class SettingsButton:
 
     def open(self) -> None:
         t = self.localization.get
-        pages = [
-            (t("settings.language"), self._language_page()),
-            (t("settings.currency"), self._currency_page()),
-            (t("settings.theme"), self._theme_page()),
-        ]
+        self._category = "language"
+        self._pages = {
+            "language": self._language_page(),
+            "currency": self._currency_page(),
+            "theme": self._theme_page(),
+        }
+        self._labels = {
+            "language": t("settings.language"),
+            "currency": t("settings.currency"),
+            "theme": t("settings.theme"),
+        }
+        self._detail = ft.Container(key="settings-detail", content=self._pages[self._category], expand=True)
         dialog = ft.AlertDialog(
             title=ft.Text(t("settings.title")),
-            content=ft.Tabs(
-                length=len(pages),
-                # The TabBarView pages need a bounded height, so the column
-                # fixes one instead of the dialog growing to fit the options.
-                content=ft.Column(
-                    height=360,
-                    controls=[
-                        ft.TabBar(tabs=[ft.Tab(label=label) for label, _ in pages]),
-                        ft.TabBarView(expand=True, controls=[page for _, page in pages]),
-                    ],
-                ),
+            content=ft.Column(
+                height=360,
+                controls=[self._category_row(), self._detail],
             ),
         )
+        self._dialog = dialog
         self.page.show_dialog(dialog)
+
+    def _category_row(self) -> ft.Row:
+        self._tiles = {}
+        tiles = []
+        for code in ("language", "currency", "theme"):
+            tile = self._category_tile(code)
+            self._tiles[code] = tile
+            tiles.append(tile)
+        return ft.Row(tiles, spacing=8)
+
+    def _category_tile(self, code: str) -> ft.ListTile:
+        return ft.ListTile(
+            key=f"cat-{code}",
+            title=ft.Text(self._labels[code]),
+            trailing=ft.Icon(ft.Icons.CHECK) if code == self._category else None,
+            on_click=self._make_category_handler(code),
+        )
+
+    def _make_category_handler(self, code: str):
+        async def _handle(e):
+            self._category = code
+            self._detail.content = self._pages[code]
+            for tile in self._tiles.values():
+                tile.trailing = ft.Icon(ft.Icons.CHECK) if tile.key == f"cat-{code}" else None
+            # page.update pushes to a live page; FakePage absorbs it. Never
+            # dialog.update() — it raises RuntimeError when unmounted (tests).
+            self.page.update(self._dialog)
+
+        return _handle
 
     def _language_page(self) -> ft.ListView:
         return self._option_page(

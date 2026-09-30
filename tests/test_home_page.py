@@ -29,9 +29,9 @@ async def test_version_line_comes_from_the_version_it_was_given():
 
 
 def _language_tile(dialog, code):
-    """The language list tile inside the settings dialog's first tab page."""
-    pages = dialog.content.content.controls[1]
-    return next(t for t in pages.controls[0].controls if t.key == f"lang-{code}")
+    """The language list tile inside the settings dialog's detail area."""
+    detail = next(c for c in dialog.content.controls if getattr(c, "key", None) == "settings-detail")
+    return next(t for t in detail.content.controls if t.key == f"lang-{code}")
 
 
 async def test_english_default_labels():
