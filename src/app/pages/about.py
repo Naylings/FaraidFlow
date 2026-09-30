@@ -50,7 +50,7 @@ class AboutPage:
             ft.Text(t("about.title"), size=22, weight=ft.FontWeight.BOLD),
         ])
         column = ft.Column(
-            controls=[header, self._app_line(), *self._sections(), self._donate()],
+            controls=[header, self._app_line(), *self._sections()],
             spacing=16,
             expand=True,
             scroll=ft.ScrollMode.AUTO,
@@ -71,15 +71,4 @@ class AboutPage:
                 ft.Text(value),
             ],
             spacing=6,
-        )
-
-    def _donate(self) -> ft.FilledButton:
-        """A placeholder, not a payment path: there is nowhere to send money yet,
-        and a live-looking button that does nothing is worse than a disabled one."""
-        t = self.loc.get
-        return ft.FilledButton(
-            content=t("about.donate"),
-            key="about-donate",
-            disabled=True,
-            tooltip=t("about.donate_soon"),
         )

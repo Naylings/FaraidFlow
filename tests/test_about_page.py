@@ -78,12 +78,12 @@ async def test_version_from_pyproject_reaches_the_page():
 
 
 async def test_the_seven_rows_render_in_reading_order():
-    """Spec order: app+version, author, location, credits, license, github, donate."""
+    """Spec order: app+version, author, location, credits, license, github."""
     about = await _about()
     labels = _labels(about.build())
     assert labels[0] == "About", "the header title leads"
     assert labels[1] == f"{APP_NAME} v{TEST_VERSION}"
-    assert labels[2::2] == [en.TRANSLATIONS[k] for k in SECTION_LABELS] + [en.TRANSLATIONS["about.donate"]]
+    assert labels[2::2] == [en.TRANSLATIONS[k] for k in SECTION_LABELS]
     assert labels[3::2] == [AUTHOR, LOCATION, CREDITS, LICENSE, GITHUB_URL], "each label sits above its own value"
 
 
@@ -116,26 +116,17 @@ async def test_credits_name_the_software_and_the_sources():
         assert expected in credits, expected
 
 
-async def test_donation_button_is_a_disabled_placeholder():
-    about = await _about()
-    button = _by_key(about.build(), "about-donate")
-    assert isinstance(button, ft.FilledButton)
-    assert button.content == en.TRANSLATIONS["about.donate"]
-    assert button.disabled is True, "the placeholder must not pretend to take money"
-    assert button.tooltip == en.TRANSLATIONS["about.donate_soon"]
-
-
 async def test_every_about_key_is_rendered_in_english():
     about = await _about()
     labels = _labels(about.build())
-    missing = [k for k in ABOUT_KEYS if k != "about.donate_soon" and en.TRANSLATIONS[k] not in labels]
+    missing = [k for k in ABOUT_KEYS if k not in ("about.donate", "about.donate_soon") and en.TRANSLATIONS[k] not in labels]
     assert missing == []
 
 
 async def test_every_about_key_is_rendered_in_indonesian():
     about = await _about("id")
     labels = _labels(about.build())
-    missing = [k for k in ABOUT_KEYS if k != "about.donate_soon" and id_table.TRANSLATIONS[k] not in labels]
+    missing = [k for k in ABOUT_KEYS if k not in ("about.donate", "about.donate_soon") and id_table.TRANSLATIONS[k] not in labels]
     assert missing == []
 
 
