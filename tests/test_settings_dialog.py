@@ -298,3 +298,16 @@ async def test_choosing_currency_returns_to_updated_summary():
     assert len(page.dialogs) == 1
     assert _find_by_key(page.dialogs[0], "setting-value-currency").content == "Indonesian Rupiah (IDR)"
     assert calls == ["changed"]
+
+async def test_settings_dialogs_share_fixed_width_with_aligned_columns():
+    loc = Localization("en", None)
+    page = FakePage()
+    btn = SettingsButton(page, loc, on_change=lambda: None)
+    btn.open()
+    dialog = page.dialogs[0]
+    assert dialog.content.width == 320
+    for row in dialog.content.controls:
+        assert row.alignment == ft.MainAxisAlignment.SPACE_BETWEEN
+        assert row.controls[0].text_align == ft.TextAlign.LEFT
+    await _find_by_key(dialog, "setting-value-currency").on_click(None)
+    assert page.dialogs[1].content.width == 320

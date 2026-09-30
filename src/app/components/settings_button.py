@@ -4,6 +4,10 @@ import flet as ft
 
 from app.localization.localization import CURRENCIES, LANGUAGES, THEMES
 
+# Fixed dialog width so the summary rows and the choice lists share one stable
+# geometry instead of sizing to their longest label.
+DIALOG_WIDTH = 320
+
 
 class SettingsButton:
     """AppBar button that opens a summary settings dialog.
@@ -48,10 +52,17 @@ class SettingsButton:
                 on_click=self._make_choice_handler(code),
             )
             self._value_buttons[code] = button
-            rows.append(ft.Row([ft.Text(self._labels[code]), button], spacing=8))
+            rows.append(ft.Row(
+                [
+                    ft.Text(self._labels[code], expand=True, text_align=ft.TextAlign.LEFT),
+                    button,
+                ],
+                spacing=8,
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            ))
         self._dialog = ft.AlertDialog(
             title=ft.Text(t("settings.title")),
-            content=ft.Column(rows, spacing=4),
+            content=ft.Column(rows, spacing=4, width=DIALOG_WIDTH),
         )
         self.page.show_dialog(self._dialog)
 
@@ -90,7 +101,7 @@ class SettingsButton:
             title=ft.Text(self._labels[code]),
             # Bounded so the 5-entry currency list cannot grow the dialog; scrolls
             # on short screens. Pixel heights are not test-pinned — structure is.
-            content=ft.Column(height=320, scroll=ft.ScrollMode.AUTO, controls=tiles),
+            content=ft.Column(height=320, scroll=ft.ScrollMode.AUTO, width=DIALOG_WIDTH, controls=tiles),
         )
         self.page.show_dialog(choice)
 
