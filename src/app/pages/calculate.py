@@ -251,6 +251,8 @@ class CalculationPage:
 
         if not r.errors and self.heirs:
             blocks.append(self._build_tree())
+        else:
+            blocks.append(self._empty_tree_card())
 
         claims = []
         if r.errors:
@@ -323,7 +325,29 @@ class CalculationPage:
             ))
             blocks.append(self._build_breakdown())
             blocks.append(self._build_notes())
-            blocks.append(self._build_details(r))
+        else:
+            cols = [("calc.col_heir", 3, False), ("calc.col_share", 2, True), ("calc.col_total", 2, True)]
+            header = ft.Row(
+                [
+                    ft.Text(
+                        t(key),
+                        size=12,
+                        weight=ft.FontWeight.BOLD,
+                        expand=w,
+                        text_align=ft.TextAlign.RIGHT if numeric else ft.TextAlign.LEFT,
+                        no_wrap=True,
+                        overflow=ft.TextOverflow.ELLIPSIS,
+                        tooltip=t(key),
+                    )
+                    for key, w, numeric in cols
+                ],
+                spacing=8,
+            )
+            blocks.append(ft.Container(
+                ft.Column([header, ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT), self._empty_hint()], key="result-table", spacing=6),
+                padding=ft.Padding.only(left=16, right=16),
+            ))
+        blocks.append(self._build_details(r))
 
         return ft.Column(
             controls=blocks,
@@ -378,6 +402,22 @@ class CalculationPage:
         estate arithmetic line was the last one still running to the bezel."""
         return ft.Container(block, padding=ft.Padding.only(left=16, right=16))
 
+    def _empty_hint(self) -> ft.Text:
+        """One shared clarification line for blocks with no data yet."""
+        return ft.Text(self.loc.get("calc.empty_hint"), size=12, italic=True)
+
+    def _empty_tree_card(self) -> ft.Card:
+        t = self.loc.get
+        return ft.Card(content=ft.Container(
+            ft.Column([
+                ft.Text(t("calc.tree"), weight=ft.FontWeight.BOLD, size=15),
+                ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT),
+                self._empty_hint(),
+            ], spacing=10),
+            padding=16,
+            expand=True,
+        ))
+
     def _build_details(self, r) -> ft.ExpansionTile:
         t = self.loc.get
         eq = _equivalence_lines(r.rows)
@@ -412,6 +452,8 @@ class CalculationPage:
             controls.append(ft.Text(
                 t("calc.residual").format(amount=self._amount(r.residual)), size=12,
             ))
+        if not controls:
+            controls.append(self._empty_hint())
         return ft.Container(
             ft.ExpansionTile(
                 key="calc-details",

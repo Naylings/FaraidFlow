@@ -1040,3 +1040,47 @@ async def test_is_two_pane_treats_unset_width_as_stacked():
     assert is_two_pane(991) is False
     assert is_two_pane(992) is True
     assert is_two_pane(1400) is True
+
+
+def _texts(root):
+    out = []
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, ft.Text) and isinstance(node.value, str):
+            out.append(node.value)
+        stack.extend(getattr(node, "controls", []) or [])
+        content = getattr(node, "content", None)
+        if content is not None:
+            stack.append(content)
+        # ExpansionTile keeps its header in `title`, not `controls`/`content`
+        title = getattr(node, "title", None)
+        if isinstance(title, ft.Control):
+            stack.append(title)
+    return out
+
+
+def test_empty_result_shows_shells_with_hint():
+    page = FakePage()
+    loc = Localization("en", None)
+    calc = CalculationPage(page, loc, back_home=lambda: None)
+    calc.build()
+    calc._collect()
+    calc._compute()
+    text = " ".join(_texts(calc._build_result()))
+    assert loc.get("calc.empty_hint") in text
+    assert loc.get("calc.tree") in text
+    assert loc.get("calc.details") in text
+    for header in (loc.get("calc.col_heir"), loc.get("calc.col_share"), loc.get("calc.col_total")):
+        assert header in text
+
+
+def test_empty_result_hint_is_indonesian_in_id():
+    page = FakePage()
+    loc = Localization("id", None)
+    calc = CalculationPage(page, loc, back_home=lambda: None)
+    calc.build()
+    calc._collect()
+    calc._compute()
+    text = " ".join(_texts(calc._build_result()))
+    assert "Jalankan perhitungan untuk melihat hasil di sini." in text

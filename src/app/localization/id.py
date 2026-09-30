@@ -70,6 +70,7 @@ TRANSLATIONS = {
     'calc.nothing': 'Tidak ada sisa yang dapat dibagi.',
     'calc.errors.no_heirs': 'Pilih minimal satu ahli waris.',
     'calc.errors.spouse_both': 'Tidak dapat memilih suami sekaligus istri.',
+    'calc.empty_hint': 'Jalankan perhitungan untuk melihat hasil di sini.',
     'money.prefix': '$',
     'money.thousands_sep': '.',
     'money.decimal_sep': ',',

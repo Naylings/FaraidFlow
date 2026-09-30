@@ -126,6 +126,12 @@ def test_both_langs_have_identical_keys():
     assert set(en.TRANSLATIONS.keys()) == set(id.TRANSLATIONS.keys())
 
 
+def test_empty_hint_key_exists_in_both_languages():
+    from app.localization import en, id
+    assert en.TRANSLATIONS["calc.empty_hint"] == "Run a calculation to see your results here."
+    assert id.TRANSLATIONS["calc.empty_hint"] == "Jalankan perhitungan untuk melihat hasil di sini."
+
+
 def test_new_keys_exist():
     required_new = [
         "settings.title", "settings.language", "settings.currency", "settings.theme",

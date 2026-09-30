@@ -70,6 +70,7 @@ TRANSLATIONS = {
     'calc.nothing': 'There is nothing left to distribute.',
     'calc.errors.no_heirs': 'Select at least one heir.',
     'calc.errors.spouse_both': 'Cannot choose both husband and wife.',
+    'calc.empty_hint': 'Run a calculation to see your results here.',
     'money.prefix': '$',
     'money.thousands_sep': ',',
     'money.decimal_sep': '.',
