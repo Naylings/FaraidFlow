@@ -177,6 +177,7 @@ async def test_main_language_switch_keeps_the_information_page():
     texts = _texts(root)
     assert "Pengantar" in texts
     assert "Introduction" not in texts
-    assert page.appbar.actions[0].content == "\U0001F1EE\U0001F1E9 ID", "the appbar must be rebuilt with the new language"
+    assert page.appbar.actions[0].icon == ft.Icons.SETTINGS
+    assert page.appbar.actions[0].tooltip == id_table.TRANSLATIONS["settings.title"], "the appbar must be rebuilt with the new language"
     _by_key(root, "back-home").on_click(None)
     assert _by_key(page.controls[0], "menu-calculate").content == "Hitung"

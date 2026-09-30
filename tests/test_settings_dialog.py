@@ -144,13 +144,13 @@ async def test_appbar_button_is_the_settings_button():
     assert id_btn.button.tooltip == "Pengaturan"
 
 
-async def test_appbar_button_shows_the_language_flag():
+async def test_appbar_button_shows_the_settings_icon():
     page = FakePage()
     loc = await _loc()
     btn = SettingsButton(page, loc, on_change=lambda: None)
-    assert btn.button.content == "🇬🇧 EN"
+    assert btn.button.icon == ft.Icons.SETTINGS
     await btn.choose_language("id")
-    assert SettingsButton(page, loc, lambda: None).button.content == "🇮🇩 ID"
+    assert SettingsButton(page, loc, lambda: None).button.icon == ft.Icons.SETTINGS
 
 
 async def test_on_change_is_optional():

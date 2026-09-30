@@ -241,7 +241,8 @@ async def test_main_language_switch_keeps_the_about_page():
     assert [t for t in labels if t in {id_table.TRANSLATIONS[k] for k in SECTION_LABELS}] == [
         id_table.TRANSLATIONS[k] for k in SECTION_LABELS
     ]
-    assert page.appbar.actions[0].content == "\U0001F1EE\U0001F1E9 ID", "the appbar must be rebuilt with the new language"
+    assert page.appbar.actions[0].icon == ft.Icons.SETTINGS
+    assert page.appbar.actions[0].tooltip == id_table.TRANSLATIONS["settings.title"], "the appbar must be rebuilt with the new language"
     _by_key(page.controls[0], "back-home").on_click(None)
     assert _by_key(page.controls[0], "menu-calculate").content == "Hitung"
 

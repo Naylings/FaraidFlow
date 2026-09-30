@@ -53,7 +53,7 @@ async def test_appbar_title_and_settings_button():
     appbar = home.build_appbar()
     assert appbar.title.value == "FaraidFlow"
     assert appbar.actions[0].key == "settings-button"
-    assert appbar.actions[0].content == "🇬🇧 EN"
+    assert appbar.actions[0].icon == ft.Icons.SETTINGS
 
 
 async def test_tapping_calculate_routes_to_calculator():
@@ -89,7 +89,7 @@ async def test_refresh_rebuilds_in_indonesian():
     home.refresh()
     assert [b.content for b in _buttons(home)] == ["Hitung", "Informasi", "Tentang"]
     assert page.appbar.title.value == "FaraidFlow"
-    assert page.appbar.actions[0].content == "🇮🇩 ID"
+    assert page.appbar.actions[0].icon == ft.Icons.SETTINGS
 
 
 async def test_appbar_injected_on_change_replaces_refresh():

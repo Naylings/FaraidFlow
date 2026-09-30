@@ -1,6 +1,7 @@
 import flet as ft
 import pytest
 
+from app.localization import id as id_table
 from app.localization.localization import STORAGE_KEYS
 from main import main
 from fakes import FakePage, FakeStorage
@@ -95,7 +96,8 @@ async def test_language_switch_keeps_calculator_and_state():
     assert gross is not None
     gross.value = "5000000"
     await _pick_language_id(page)
-    assert page.appbar.actions[0].content == "🇮🇩 ID"
+    assert page.appbar.actions[0].icon == ft.Icons.SETTINGS
+    assert page.appbar.actions[0].tooltip == id_table.TRANSLATIONS["settings.title"]
     root = page.controls[0]
     assert _find_by_key(root, "menu-calculate") is None
     new_gross = _find_by_key(root, "estate-gross")
@@ -107,7 +109,8 @@ async def test_language_switch_on_home_rerenders_home():
     page = FakePage()
     await main(page)
     await _pick_language_id(page)
-    assert page.appbar.actions[0].content == "🇮🇩 ID"
+    assert page.appbar.actions[0].icon == ft.Icons.SETTINGS
+    assert page.appbar.actions[0].tooltip == id_table.TRANSLATIONS["settings.title"]
     btn = _find_by_key(page.controls[0], "menu-calculate")
     assert btn is not None
     assert btn.content == "Hitung"
@@ -122,7 +125,8 @@ async def test_back_to_home_renders_current_language():
     back_btn = _find_by_key(calc_root, "back-home")
     assert back_btn is not None
     back_btn.on_click(None)
-    assert page.appbar.actions[0].content == "🇮🇩 ID"
+    assert page.appbar.actions[0].icon == ft.Icons.SETTINGS
+    assert page.appbar.actions[0].tooltip == id_table.TRANSLATIONS["settings.title"]
     btn = _find_by_key(page.controls[0], "menu-calculate")
     assert btn is not None
     assert btn.content == "Hitung"

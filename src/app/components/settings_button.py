@@ -18,18 +18,12 @@ class SettingsButton:
         self.localization = localization
         self.on_change = on_change
 
-        self.button = ft.TextButton(
-            content=self._flag_text(),
+        self.button = ft.IconButton(
+            icon=ft.Icons.SETTINGS,
             key="settings-button",
             tooltip=self.localization.get("settings.title"),
             on_click=lambda e: self.open(),
         )
-
-    def _flag_text(self) -> str:
-        for lang in LANGUAGES:
-            if lang["code"] == self.localization.language:
-                return f'{lang["flag"]} {lang["code"].upper()}'
-        return self.localization.language
 
     def open(self) -> None:
         t = self.localization.get
