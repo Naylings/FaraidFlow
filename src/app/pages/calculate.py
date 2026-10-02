@@ -9,6 +9,8 @@ from app.calculation import estate as estate_mod
 from app.localization.localization import Localization
 from app.ui.calculate.claims import build_claims
 from app.ui.calculate.details import build_details, build_notes
+from app.ui.calculate.estate_form import build_estate_card
+from app.ui.calculate.heirs_form import build_heirs_card
 from app.ui.calculate.shared import (
     CARD_PADDING,
     GUTTER,
@@ -17,14 +19,21 @@ from app.ui.calculate.shared import (
     MIN_FIELD_WIDTH,
     MIN_SPOUSE_INLINE_WIDTH,
     _fmt_int,
-    _label,
-    _pairs,
     _parse_int,
     format_amount,
     is_two_pane,
 )
 from app.ui.calculate.table import build_breakdown, build_result_table
 from app.ui.calculate.tree import build_empty_tree_card, build_tree
+
+# Layout thresholds live in `app.ui.calculate.shared`, but the suite reads them
+# through this page, so they stay re-exported here and keep resolving.
+__all__ = [
+    "LABEL_WIDTH",
+    "MIN_CHECKBOX_WIDTH",
+    "MIN_FIELD_WIDTH",
+    "MIN_SPOUSE_INLINE_WIDTH",
+]
 
 
 class CalculationPage:
@@ -196,59 +205,6 @@ class CalculationPage:
         cell = (self._form_pane_width() - GUTTER) / 2
         return 6 if cell >= need else 12
 
-    def _heir_section(self, section, keys):
-        """One titled block of the heir card. Spouse is a radio group plus the wife
-        count; the other sections are paired count fields. Both go through here so
-        the sections cannot drift apart."""
-        t = self.loc.get
-        if section == "spouse":
-            # The wife count belongs beside the choice that enables it. It cannot
-            # stay in one `wrap=True` row, because a wrapping child greedily takes
-            # the full pane width and pushed the dropdown underneath at every size.
-            # The pane decides instead: side by side while they fit, underneath when
-            # they do not.
-            if self._form_pane_width() >= MIN_SPOUSE_INLINE_WIDTH:
-                body = [ft.Row([self._spouse, self._wife_count], spacing=12)]
-            else:
-                body = [self._spouse, self._wife_count]
-        else:
-            body = [
-                ft.ResponsiveRow(
-                    [self._heir_field_row(k) for k in pair],
-                    spacing=8,
-                    run_spacing=8,
-                )
-                for pair in _pairs(keys)
-            ]
-        return ft.Column(
-            [
-                ft.Text(
-                    t(f"calc.{section}"),
-                    size=13,
-                    weight=ft.FontWeight.BOLD,
-                ),
-                *body,
-            ],
-            spacing=8,
-        )
-
-    def _heir_field_row(self, key) -> ft.Row:
-        t = self.loc.get
-        if key in self._parent_checkboxes:
-            return ft.Row(
-                [self._parent_checkboxes[key]],
-                col=self._heir_col(MIN_CHECKBOX_WIDTH),
-            )
-        field = self._count_fields[key]
-        # expand so the entry takes exactly what the label leaves over and can never
-        # push out past its own cell
-        field.expand = True
-        return ft.Row(
-            [_label(t(key)), field],
-            col=self._heir_col(LABEL_WIDTH + MIN_FIELD_WIDTH),
-            spacing=8,
-        )
-
     def build_appbar_action(self) -> ft.IconButton:
         return ft.IconButton(
             key="appbar-calculate",
@@ -260,79 +216,22 @@ class CalculationPage:
     def build(self):
         t = self.loc.get
         self.two_pane = is_two_pane(getattr(self.page, "width", None))
-        self._spouse = ft.RadioGroup(
-            value="none",
-            # wrap so the three choices break across lines on a narrow pane instead
-            # of overflowing it
-            content=ft.Row(
-                [
-                    ft.Radio(value="none", label=t("calc.spouse_none")),
-                    ft.Radio(value="husband", label=t("husband")),
-                    ft.Radio(value="wife", label=t("wife"), tooltip=t("wife")),
-                ],
-                spacing=8,
-                run_spacing=4,
-                wrap=True,
-            ),
-            on_change=lambda e: self._sync_wife_count(),
+        estate_card, self._tf = build_estate_card(t, self._format_estate_field)
+        heirs_card, refs = build_heirs_card(
+            t,
+            on_spouse_change=self._sync_wife_count,
+            col_for=self._heir_col,
+            pane_width=self._form_pane_width(),
         )
-        self._wife_count = ft.Dropdown(
-            key="count-wife",
-            label=t("wife"),
-            options=[ft.DropdownOption(key=str(n), content=ft.Text(str(n))) for n in range(1, 5)],
-            value="1",
-            width=110,
-        )
-        self._count_fields = {
-            key: _count_field(key, t, show_label=False)
-            for _, keys in heirs.HEIR_SECTIONS
-            for key in keys
-            if key not in ("husband", "wife", "father", "mother")
-        }
-        self._parent_checkboxes = {
-            key: ft.Checkbox(key=key, label=t(key), value=False)
-            for key in ("father", "mother")
-        }
+        self._spouse = refs["spouse"]
+        self._wife_count = refs["wife_count"]
+        self._count_fields = refs["count_fields"]
+        self._parent_checkboxes = refs["parent_checkboxes"]
         self._sync_wife_count()
-        self._tf = {
-            k: ft.TextField(
-                key=k,
-                label=t({"estate-gross": "calc.gross", "estate-funeral": "calc.funeral", "estate-debts": "calc.debts", "estate-wasiat": "calc.wasiat"}[k]),
-                value="0",
-                width=180,
-                keyboard_type=ft.KeyboardType.NUMBER,
-                input_filter=ft.InputFilter(
-                    regex_string=r"^[0-9,]*$",
-                    allow=True,
-                    replacement_string="",
-                ),
-                on_change=lambda e, k=k: self._format_estate_field(k),
-            )
-            for k in ("estate-gross", "estate-funeral", "estate-debts", "estate-wasiat")
-        }
         header = ft.Row([
             ft.IconButton(ft.Icons.ARROW_BACK, key="back-home", tooltip=t("calc.back"), on_click=lambda e: self.back_home and self.back_home()),
             ft.Text(t("calc.title"), size=22, weight=ft.FontWeight.BOLD),
         ])
-        estate_card = ft.Card(content=ft.Container(
-            ft.Column([
-                ft.Text(t("calc.estate"), weight=ft.FontWeight.BOLD, size=15),
-                ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT),
-                ft.Row(list(self._tf.values()), wrap=True),
-            ], spacing=16),
-            padding=16,
-        ))
-        heirs_card = ft.Card(content=ft.Container(
-            ft.Column([
-                ft.Text(t("calc.heirs"), weight=ft.FontWeight.BOLD, size=15),
-                ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT),
-                *[
-                    self._heir_section(section, keys)
-                    for section, keys in heirs.HEIR_SECTIONS
-                ],
-            ], spacing=16),
-            padding=16,
-        ))
         calc_btn = ft.FilledButton(
             content=t("calc.calculate"),
             key="btn-calculate",
@@ -387,28 +286,3 @@ class CalculationPage:
         )
         self._scroll_host = result_pane if self.two_pane else self._root
         return self._root
-
-
-def _count_field(key, t, show_label=True):
-    return ft.TextField(
-        key=f"count-{key}",
-        label=t(key) if show_label else None,
-        value="0",
-        width=110,
-        keyboard_type=ft.KeyboardType.NUMBER,
-        input_filter=ft.InputFilter(
-            regex_string=r"^[0-9]*$",
-            allow=True,
-            replacement_string="",
-        ),
-        on_change=lambda e: _keep_a_number(e.control),
-    )
-
-
-def _keep_a_number(field):
-    """Same shape as _format_estate_field: a count is always one plain number,
-    never blank, and never carrying stray characters."""
-    digits = "".join(ch for ch in (field.value or "") if ch.isdigit())
-    canonical = str(int(digits)) if digits else "0"
-    if field.value != canonical:
-        field.value = canonical
