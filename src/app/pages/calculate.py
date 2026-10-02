@@ -4,8 +4,8 @@ import asyncio
 
 import flet as ft
 
-from app.calculation import engine, heirs
 from app.calculation import estate as estate_mod
+from app.calculation.state import CalculationState
 from app.localization.localization import Localization
 from app.ui.calculate.claims import build_claims
 from app.ui.calculate.details import build_details, build_notes
@@ -41,14 +41,32 @@ class CalculationPage:
         self.page = page
         self.loc = localization
         self.back_home = back_home
-        self.heirs: dict[str, int] = {}
-        self.estate = estate_mod.Estate()
-        self.calc_result: engine.Result | None = None
+        self.state = CalculationState()
         self.result_card = ft.Column(spacing=12, key=ft.ScrollKey("result-card"))
         self._parent_checkboxes: dict[str, ft.Checkbox] = {}
         self._root = None
         self.two_pane = is_two_pane(getattr(page, "width", None))
         self._scroll_host = None
+
+    @property
+    def heirs(self) -> dict[str, int]:
+        return self.state.heirs
+
+    @heirs.setter
+    def heirs(self, value: dict[str, int]) -> None:
+        self.state.heirs = value
+
+    @property
+    def estate(self):
+        return self.state.estate
+
+    @estate.setter
+    def estate(self, value) -> None:
+        self.state.estate = value
+
+    @property
+    def calc_result(self):
+        return self.state.result
 
     def _num(self, control_key, default_text="0"):
         tf = self._tf[control_key]
@@ -94,14 +112,10 @@ class CalculationPage:
         )
 
     def _collect(self):
-        self.heirs = heirs.normalize(self._slot_from_inputs())
-        self.estate = self._estate_from_inputs()
+        self.state.collect(self._slot_from_inputs(), self._estate_from_inputs())
 
     def _compute(self):
-        self.calc_result = engine.resolve(
-            self.heirs,
-            estate=self.estate if self.estate.has_numbers else None,
-        )
+        self.state.compute()
         self.result_card.controls = [self._build_result()]
 
     def capture_state(self):
