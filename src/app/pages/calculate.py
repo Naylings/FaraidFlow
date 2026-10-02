@@ -8,6 +8,7 @@ import flet as ft
 from app.calculation import engine, heirs
 from app.calculation import estate as estate_mod
 from app.localization.localization import Localization
+from app.ui.calculate.claims import build_claims
 from app.ui.calculate.shared import (
     CARD_PADDING,
     GUTTER,
@@ -15,7 +16,6 @@ from app.ui.calculate.shared import (
     MIN_CHECKBOX_WIDTH,
     MIN_FIELD_WIDTH,
     MIN_SPOUSE_INLINE_WIDTH,
-    _cell,
     _empty_hint,
     _fmt_int,
     _fmt_num,
@@ -26,6 +26,7 @@ from app.ui.calculate.shared import (
     format_amount,
     is_two_pane,
 )
+from app.ui.calculate.table import build_breakdown, build_result_table
 from app.ui.calculate.tree import build_empty_tree_card, build_tree
 
 
@@ -142,6 +143,9 @@ class CalculationPage:
             self._collect()
             self._compute()
 
+    def _amount(self, value) -> str:
+        return format_amount(self.loc, value)
+
     def _build_result(self) -> ft.Column:
         r = self.calc_result
         t = self.loc.get
@@ -153,87 +157,14 @@ class CalculationPage:
         else:
             blocks.append(build_empty_tree_card(t))
 
-        claims = []
-        if r.errors:
-            prioritized = [e for e in r.errors if e == "calc.errors.no_heirs"] or r.errors
-            for e in prioritized:
-                claims.append(ft.Text(t(e), color=ft.Colors.ERROR))
-        if self.estate.has_numbers and self.estate.unpaid > 0 and not r.errors:
-            claims.append(ft.Text(t("calc.debt_note"), italic=True, size=12))
-        if not r.errors and self.estate.net <= 0 and self.estate.has_numbers:
-            if self.estate.unpaid > 0:
-                claims.append(ft.Text(
-                    t("calc.depleted").format(amount=format_amount(self.loc, self.estate.unpaid)),
-                    color=ft.Colors.ERROR,
-                ))
-            else:
-                claims.append(ft.Text(t("calc.nothing"), color=ft.Colors.ERROR))
+        claims = build_claims(t, r, self.heirs, self.estate, self._amount)
+        if claims is not None:
+            blocks.append(claims)
 
-        if claims:
-            blocks.append(ft.Column(claims, spacing=6))
-
+        blocks.append(build_result_table(t, r.rows, self._amount))
         if r.rows:
-            t2 = self.loc.get
-            show_each = any(row.count > 1 for row in r.rows)
-            weights = [("calc.col_heir", 3), ("calc.col_share", 2)]
-            if show_each:
-                weights.append(("calc.col_each", 2))
-            weights.append(("calc.col_total", 2))
-
-            table_rows = [
-                ft.Row(
-                    [_cell(t2(key), w, bold=True, numeric=idx > 0) for idx, (key, w) in enumerate(weights)],
-                    spacing=8,
-                ),
-                ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT),
-            ]
-            for row in r.rows:
-                cells = [
-                    _cell(
-                        t2(row.key) + (f"  x{row.count}" if row.count > 1 else ""),
-                        weights[0][1],
-                    ),
-                    _cell(_fmt_num(row.share * row.count), weights[1][1], numeric=True),
-                ]
-                if show_each:
-                    cells.append(_cell(format_amount(self.loc, row.each), weights[2][1], numeric=True))
-                cells.append(
-                    _cell(
-                        format_amount(self.loc, row.amount),
-                        weights[-1][1],
-                        numeric=True,
-                    )
-                )
-                table_rows.append(ft.Row(cells, spacing=8))
-            blocks.append(ft.Container(
-                ft.Column(table_rows, key="result-table", spacing=6),
-                # keep the amounts off the card bezel, matching the tree card's inset
-                padding=ft.Padding.only(left=16, right=16),
-            ))
-            blocks.append(self._build_breakdown())
+            blocks.append(build_breakdown(t, self.estate, self._amount))
             blocks.append(self._build_notes())
-        else:
-            cols = [("calc.col_heir", 3, False), ("calc.col_share", 2, True), ("calc.col_total", 2, True)]
-            header = ft.Row(
-                [
-                    ft.Text(
-                        t(key),
-                        size=12,
-                        weight=ft.FontWeight.BOLD,
-                        expand=w,
-                        text_align=ft.TextAlign.RIGHT if numeric else ft.TextAlign.LEFT,
-                        no_wrap=True,
-                        overflow=ft.TextOverflow.ELLIPSIS,
-                        tooltip=t(key),
-                    )
-                    for key, w, numeric in cols
-                ],
-                spacing=8,
-            )
-            blocks.append(ft.Container(
-                ft.Column([header, ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT), _empty_hint(t)], key="result-table", spacing=6),
-                padding=ft.Padding.only(left=16, right=16),
-            ))
         blocks.append(self._build_details(r))
 
         return ft.Column(
@@ -241,27 +172,6 @@ class CalculationPage:
             spacing=10,
             horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
         )
-
-    def _build_breakdown(self) -> ft.Column:
-        e = self.estate
-        t = self.loc.get
-        line = (
-            f"{t('calc.gross')} {format_amount(self.loc, e.gross)} - "
-            f"{t('calc.funeral')} {format_amount(self.loc, e.funeral)} - "
-            f"{t('calc.debts')} {format_amount(self.loc, e.debts)} - "
-            f"{t('calc.wasiat')} {format_amount(self.loc, e.wasiat)} = "
-            f"{t('calc.net')} {format_amount(self.loc, e.net)}"
-        )
-        rows = [ft.Text(line, size=12)]
-        if not e.wasiat_ok:
-            rows.append(ft.Text(
-                f"{t('calc.wasiat_warn')} {t('calc.wasiat_cap')} {format_amount(self.loc, e.wasiat_cap)}"
-                f", {t('calc.wasiat_exc')} {format_amount(self.loc, e.wasiat_excess)}"
-                f"; {t('calc.wasiat_consent')}",
-                size=12,
-                italic=True,
-            ))
-        return _inset(ft.Column(rows, spacing=4))
 
     def _build_notes(self) -> ft.Container:
         r = self.calc_result
