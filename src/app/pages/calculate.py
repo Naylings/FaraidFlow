@@ -61,7 +61,7 @@ class CalculationPage:
         return self.state.estate
 
     @estate.setter
-    def estate(self, value) -> None:
+    def estate(self, value: estate_mod.Estate) -> None:
         self.state.estate = value
 
     @property
