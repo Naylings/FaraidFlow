@@ -573,7 +573,7 @@ from fractions import Fraction as F
 
 def test_equivalence_lines_from_group_shares():
     from app.calculation.engine import Row
-    from app.pages.calculate import _equivalence_lines
+    from app.ui.calculate.details import _equivalence_lines
     rows = [
         Row(key="husband", count=1, share=F(1, 2)),
         Row(key="father", count=1, share=F(1, 3)),
@@ -940,7 +940,7 @@ async def test_result_table_cells_carry_tooltips():
 
 def test_equivalence_lines_use_group_share_so_sum_to_one():
     from app.calculation.engine import Row
-    from app.pages.calculate import _equivalence_lines
+    from app.ui.calculate.details import _equivalence_lines
     rows = [
         Row(key="son", count=2, share=F(1, 5)),     # per person
         Row(key="daughter", count=1, share=F(1, 5)),

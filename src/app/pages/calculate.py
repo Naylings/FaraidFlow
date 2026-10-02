@@ -1,7 +1,6 @@
 # src/app/pages/calculate.py
 
 import asyncio
-import math
 
 import flet as ft
 
@@ -9,6 +8,7 @@ from app.calculation import engine, heirs
 from app.calculation import estate as estate_mod
 from app.localization.localization import Localization
 from app.ui.calculate.claims import build_claims
+from app.ui.calculate.details import build_details, build_notes
 from app.ui.calculate.shared import (
     CARD_PADDING,
     GUTTER,
@@ -16,10 +16,7 @@ from app.ui.calculate.shared import (
     MIN_CHECKBOX_WIDTH,
     MIN_FIELD_WIDTH,
     MIN_SPOUSE_INLINE_WIDTH,
-    _empty_hint,
     _fmt_int,
-    _fmt_num,
-    _inset,
     _label,
     _pairs,
     _parse_int,
@@ -28,20 +25,6 @@ from app.ui.calculate.shared import (
 )
 from app.ui.calculate.table import build_breakdown, build_result_table
 from app.ui.calculate.tree import build_empty_tree_card, build_tree
-
-
-def _equivalence_lines(rows) -> list[str]:
-    if not rows:
-        return []
-    lcm = 1
-    for row in rows:
-        lcm = math.lcm(lcm, (row.share * row.count).denominator)
-    out = []
-    for row in rows:
-        group = row.share * row.count
-        num = group * lcm
-        out.append(f"{_fmt_num(group)} = {num.numerator}/{lcm}")
-    return out
 
 
 class CalculationPage:
@@ -164,96 +147,14 @@ class CalculationPage:
         blocks.append(build_result_table(t, r.rows, self._amount))
         if r.rows:
             blocks.append(build_breakdown(t, self.estate, self._amount))
-            blocks.append(self._build_notes())
-        blocks.append(self._build_details(r))
+            blocks.append(build_notes(t, self.calc_result))
+        blocks.append(build_details(t, self.calc_result, self.estate, self._amount))
 
         return ft.Column(
             controls=blocks,
             spacing=10,
             horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
         )
-
-    def _build_notes(self) -> ft.Container:
-        r = self.calc_result
-        t = self.loc.get
-        notes = []
-        if r.aul:
-            notes.append(t("calc.aul").format(old=r.base_from, new=r.base))
-        if r.radd_applied:
-            notes.append(t("calc.radd"))
-        if r.asabah_keys:
-            names = ", ".join(t(k) for k in r.asabah_keys)
-            notes.append(t("calc.asabah").format(names=names))
-        if r.unassigned is not None:
-            notes.append(t("calc.unassigned"))
-        if not notes:
-            return _inset(ft.Column([], spacing=0))
-        return _inset(
-            ft.Column([ft.Text("\n".join(f"• {n}" for n in notes), size=12, italic=True)], spacing=0)
-        )
-
-    def _build_details(self, r) -> ft.Container:
-        t = self.loc.get
-        eq = _equivalence_lines(r.rows)
-        controls = []
-        for row, line in zip(r.rows, eq):
-            label = t(row.key) + (f" x{row.count}" if row.count > 1 else "")
-            controls.append(self._detail_row(label, line))
-        if controls and r.unassigned is None:
-            lcm = 1
-            for row in r.rows:
-                lcm = math.lcm(lcm, (row.share * row.count).denominator)
-            total_num = sum(row.share * row.count for row in r.rows) * lcm
-            controls.append(self._detail_gap())
-            controls.append(ft.Text(
-                f"{total_num.numerator}/{lcm} = 1",
-                size=12,
-                weight=ft.FontWeight.BOLD,
-            ))
-        if r.blocked_reasons:
-            if controls:
-                controls.append(self._detail_gap())
-            controls.append(ft.Text(
-                t("calc.blocked") + ":", size=12, weight=ft.FontWeight.BOLD,
-            ))
-            controls.extend(
-                ft.Text(f"{t(k)} - {t(reason)}", size=12)
-                for k, reason in r.blocked_reasons.items()
-            )
-        if self.estate.has_numbers and r.residual != 0 and r.unassigned is None:
-            if controls:
-                controls.append(self._detail_gap())
-            controls.append(ft.Text(
-                t("calc.residual").format(amount=format_amount(self.loc, r.residual)), size=12,
-            ))
-        if not controls:
-            controls.append(_empty_hint(t))
-        return ft.Container(
-            ft.ExpansionTile(
-                key="calc-details",
-                title=ft.Text(t("calc.details")),
-                controls=controls,
-                expanded=False,
-            ),
-            # same inset as the table above it and the tree card, so all three
-            # blocks start on the same left edge
-            padding=ft.Padding.only(left=16, right=16),
-        )
-
-    @staticmethod
-    def _detail_gap() -> ft.Divider:
-        return ft.Divider(height=9, color=ft.Colors.OUTLINE_VARIANT)
-
-    @staticmethod
-    def _detail_row(label, value):
-        """One heir on a row, shares aligned in their own column so the numbers
-        line up instead of running together inside a single wrapped blob."""
-        return ft.Row([
-            ft.Text(label, size=12, expand=4, no_wrap=True,
-                    overflow=ft.TextOverflow.ELLIPSIS, tooltip=label),
-            ft.Text(value, size=12, expand=3, text_align=ft.TextAlign.RIGHT,
-                    no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS, tooltip=value),
-        ], spacing=8)
 
     async def _scroll_to_result(self):
         if self._scroll_host is not None:
