@@ -16,7 +16,6 @@ from app.ui.calculate.shared import (
     MIN_FIELD_WIDTH,
     MIN_SPOUSE_INLINE_WIDTH,
     _cell,
-    _chip_label,
     _empty_hint,
     _fmt_int,
     _fmt_num,
@@ -27,6 +26,7 @@ from app.ui.calculate.shared import (
     format_amount,
     is_two_pane,
 )
+from app.ui.calculate.tree import build_empty_tree_card, build_tree
 
 
 def _equivalence_lines(rows) -> list[str]:
@@ -142,70 +142,16 @@ class CalculationPage:
             self._collect()
             self._compute()
 
-    def _build_tree(self) -> ft.Card:
-        t = self.loc.get
-        blocked = getattr(self.calc_result, "blocked_reasons", {}) or {}
-        branches = []
-        for section, keys in heirs.HEIR_SECTIONS:
-            present = {k: self.heirs.get(k, 0) for k in keys if self.heirs.get(k, 0) > 0}
-            if not present:
-                continue
-            chips = ft.Column([
-                ft.Chip(
-                    label=_chip_label(t(k) + (f" x{c}" if c > 1 else "")),
-                    bgcolor=ft.Colors.SURFACE_CONTAINER,
-                    disabled=k in blocked,
-                    tooltip=(
-                        t("calc.blocked_tip").format(reason=t(blocked[k]))
-                        if k in blocked
-                        else t(k) + (f" x{c}" if c > 1 else "")
-                    ),
-                )
-                for k, c in present.items()
-            ], spacing=4)
-            # expand divides the container's real width between the branches, so
-            # the split follows the result pane and not the window
-            branches.append(ft.Column(
-                [ft.Text(t(f"calc.{section}"), weight=ft.FontWeight.BOLD, size=12), chips],
-                spacing=4,
-                expand=1,
-            ))
-        root = ft.Chip(
-            label=_chip_label(t("calc.deceased")),
-            bgcolor=ft.Colors.PRIMARY_CONTAINER,
-            tooltip=t("calc.deceased"),
-        )
-        # The tree fills the pane and shares it out by expand + gutter. Window
-        # breakpoints cannot be used here: the tree sits inside the result pane,
-        # which is only a fraction of the window, so a span set against the
-        # window would squeeze three columns into half a window and collide.
-        return ft.Card(content=ft.Container(
-            ft.Column([
-                ft.Text(t("calc.tree"), weight=ft.FontWeight.BOLD, size=15),
-                ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT),
-                root,
-                ft.Row(
-                    branches,
-                    spacing=8,
-                    # A Row centres its children vertically by default, so a branch
-                    # with fewer chips floats up and its heading lands on a different
-                    # line from its neighbours'.
-                    vertical_alignment=ft.CrossAxisAlignment.START,
-                ),
-            ], spacing=10),
-            padding=16,
-            expand=True,
-        ))
-
     def _build_result(self) -> ft.Column:
         r = self.calc_result
         t = self.loc.get
         blocks = []
 
         if not r.errors and self.heirs:
-            blocks.append(self._build_tree())
+            blocked = getattr(self.calc_result, "blocked_reasons", {}) or {}
+            blocks.append(build_tree(t, self.heirs, blocked))
         else:
-            blocks.append(self._empty_tree_card())
+            blocks.append(build_empty_tree_card(t))
 
         claims = []
         if r.errors:
@@ -335,18 +281,6 @@ class CalculationPage:
         return _inset(
             ft.Column([ft.Text("\n".join(f"• {n}" for n in notes), size=12, italic=True)], spacing=0)
         )
-
-    def _empty_tree_card(self) -> ft.Card:
-        t = self.loc.get
-        return ft.Card(content=ft.Container(
-            ft.Column([
-                ft.Text(t("calc.tree"), weight=ft.FontWeight.BOLD, size=15),
-                ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT),
-                _empty_hint(t),
-            ], spacing=10),
-            padding=16,
-            expand=True,
-        ))
 
     def _build_details(self, r) -> ft.Container:
         t = self.loc.get
