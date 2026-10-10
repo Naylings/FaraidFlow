@@ -35,6 +35,11 @@ pythonpath = ["src"]
 # org + product become the Android application id (com.faraidflow.ahli-waris)
 # and the Windows exe filename. The "com.mycompany" the template ships with
 # would put someone else's name in the package id of a published app.
+# Brand vs slug convention: human-visible strings are FaraidFlow everywhere
+# (window title, About page, company, repo, site). The `ahli-waris` slug is
+# technical only (package name, exe filename, Android application id) and must
+# not be renamed: the exe name is published in install docs and the
+# application id cannot change without breaking updates for installed apps.
 org = "com.faraidflow"
 product = "ahli-waris"
 company = "FaraidFlow"
