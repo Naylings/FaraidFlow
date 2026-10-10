@@ -9,6 +9,8 @@ env/
 
 # Environments / secrets
 .env
+*.jks
+*.keystore
 
 # Tool caches
 .mypy_cache/

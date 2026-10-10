@@ -53,11 +53,32 @@ jobs:
       - name: Accept Android SDK licences
         run: yes | flutter doctor --android-licenses || true
 
+      - name: Decode upload keystore
+        if: ${{ secrets.ANDROID_KEYSTORE_B64 != '' }}
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          set -eu
+          echo "$ANDROID_KEYSTORE_B64" | base64 -d > /tmp/faraidflow-upload.jks
+          echo "KEYSTORE_PATH=/tmp/faraidflow-upload.jks" >> "$GITHUB_ENV"
+
       - run: uv sync
 
-      # Signing flags are added by the signing step below when secrets exist; otherwise Flet signs with the debug key.
       - name: Build
-        run: uv run flet build apk --verbose --split-per-abi -o dist/apk
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -eu
+          args=(apk --verbose --split-per-abi -o dist/apk)
+          if [ -n "${KEYSTORE_PATH:-}" ]; then
+            args+=(--android-signing-key-store "$KEYSTORE_PATH"
+              --android-signing-key-store-password "$KEYSTORE_PASSWORD"
+              --android-signing-key-alias "$KEY_ALIAS"
+              --android-signing-key-password "$KEY_PASSWORD")
+          fi
+          uv run flet build "${args[@]}"
 
       - name: Collect
         run: |
@@ -235,8 +256,7 @@ jobs:
             - `ahli-waris-*-armeabi-v7a.apk` — older 32-bit devices.
             - `ahli-waris-*-x86_64.apk` — emulators and rare x86 phones.
 
-            It is signed with a debug key, so it is for testing and sharing,
-            not the Play Store.
+            Official releases are signed with the FaraidFlow upload key; builds without configured secrets fall back to a debug key (testing and sharing only, not the Play Store).
 
             ### Windows
 
