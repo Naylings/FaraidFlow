@@ -11,6 +11,7 @@ env/
 .env
 *.jks
 *.keystore
+*.b64
 
 # Tool caches
 .mypy_cache/

@@ -108,8 +108,7 @@ Official release APKs are **signed with the FaraidFlow upload key**; builds with
 - Windows SmartScreen may say "Windows protected your PC" — choose **More info
   → Run anyway**.
 
-Both are fine to run and to share, but neither can go to Google Play. That
-needs a release keystore later.
+Both are fine to run and to share. Distribution stays on GitHub Releases (Play requires an AAB, not an APK); the upload key keeps future updates installing cleanly.
 
 ## Run from source
 

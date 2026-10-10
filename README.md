@@ -109,8 +109,7 @@ Artinya:
 - Windows SmartScreen bisa menampilkan "Windows protected your PC" — pilih
   **More info → Run anyway**.
 
-Keduanya aman untuk dipakai dan dibagikan, tapi **tidak bisa** dikirim ke Google
-Play. Untuk distribusi Play Store nanti perlu keystore rilis.
+Keduanya aman untuk dipakai dan dibagikan. Distribusi tetap lewat GitHub Releases (Play Store butuh format AAB, bukan APK); upload key menjamin update berikutnya tetap terpasang.
 
 ## Menjalankan dari sumber
 

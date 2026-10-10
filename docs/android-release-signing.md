@@ -19,6 +19,8 @@ certutil -encode faraidflow-upload.jks faraidflow-upload.b64
 (Get-Content faraidflow-upload.b64 | Select-String -Pattern '^-' -NotMatch
 gives the single-line value to paste as the secret.)
 
+Delete `faraidflow-upload.b64` right after pasting the secret value.
+
 ## 2. Add the four GitHub secrets
 
 Repo Settings > Secrets and variables > Actions, then add:
