@@ -132,7 +132,7 @@ uv run flet run --web
 
 ```bash
 uv sync
-uv run pytest          # 146 tests
+uv run pytest          # 229 tests
 uv run ruff check src
 ```
 
