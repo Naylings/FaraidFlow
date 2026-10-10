@@ -101,7 +101,7 @@ Actions.
 
 ### Peringatan Android & Windows
 
-APK dan EXE **ditandatangani dengan debug key**, bukan sertifikat rilis.
+APK rilis resmi **ditandatangani dengan upload key** FaraidFlow; build tanpa secrets yang terkonfigurasi memakai debug key (khusus testing).
 Artinya:
 
 - Android akan memperingatkan "sumber tidak dikenal" — itu normal, pilih

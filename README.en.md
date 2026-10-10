@@ -101,8 +101,7 @@ Actions.
 
 ### Android and Windows warnings
 
-The APK and the EXE are **signed with a debug key**, not a release
-certificate. That means:
+Official release APKs are **signed with the FaraidFlow upload key**; builds without configured secrets fall back to a debug key (testing only). That means:
 
 - Android will warn that the file came from an unknown source — expected, choose
   **Install anyway**.
