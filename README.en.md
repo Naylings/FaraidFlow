@@ -95,7 +95,7 @@ Actions.
 
 | Platform | How |
 |---|---|
-| **Android** | Download the `.apk` from the [releases page](https://github.com/Naylings/FaraidFlow/releases), open it, and allow **Install unknown apps** for whatever app opened it. |
+| **Android** | Download the `.apk` from the [releases page](https://github.com/Naylings/FaraidFlow/releases), open it, and allow **Install unknown apps** for whatever app opened it. Pick the -arm64-v8a file for virtually all modern phones; file names now include the architecture. |
 | **Windows** | Download the `.zip` from the [releases page](https://github.com/Naylings/FaraidFlow/releases), extract it, and run `ahli-waris.exe`. |
 | **Web** | Open <https://naylings.github.io/FaraidFlow/> — nothing to install. |
 

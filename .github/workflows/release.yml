@@ -55,21 +55,30 @@ jobs:
 
       - run: uv sync
 
-      # No keystore is configured, so Flet signs with the debug key. That APK is
-      # sideload-installable but is not accepted by Google Play.
+      # Signing flags are added by the signing step below when secrets exist; otherwise Flet signs with the debug key.
       - name: Build
-        run: uv run flet build apk --verbose -o dist/apk
+        run: uv run flet build apk --verbose --split-per-abi -o dist/apk
 
       - name: Collect
         run: |
           set -eu
-          apk="$(find dist/apk -name '*.apk' -type f | head -n 1)"
-          if [ -z "$apk" ]; then
+          ver="$(python -c 'import tomllib;print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
+          mkdir -p out
+          found=0
+          for apk in $(find dist/apk -name '*.apk' -type f | sort); do
+            base="$(basename "$apk" .apk)"
+            stem="${base%-release}"
+            stem="${stem%-debug}"
+            abi="${stem#app-}"
+            if [ -z "$abi" ]; then abi="$base"; fi
+            cp "$apk" "out/ahli-waris-${ver}-${abi}.apk"
+            found=1
+          done
+          if [ "$found" -eq 0 ]; then
             echo "::error::no APK under dist/apk"
             find dist -type f 2>/dev/null | head -n 40
             exit 1
           fi
-          mkdir -p out && cp "$apk" "out/ahli-waris-$(python -c 'import tomllib;print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])').apk"
           ls -lh out
 
       - uses: actions/upload-artifact@v4
@@ -216,11 +225,18 @@ jobs:
           body: |
             ### Android
 
-            Download `ahli-waris-*-apk`, open it, and allow **Install unknown
+            Download the APK matching your phone and allow **Install unknown
             apps** for whichever app opened it. Android warns about an unknown
             source the first time; that is expected for a build that does not go
-            through Google Play. It is signed with a debug key, so it is for
-            testing and sharing, not the Play Store.
+            through Google Play.
+
+            - `ahli-waris-*-arm64-v8a.apk` — virtually all modern phones (2017+).
+              Pick this unless you know otherwise.
+            - `ahli-waris-*-armeabi-v7a.apk` — older 32-bit devices.
+            - `ahli-waris-*-x86_64.apk` — emulators and rare x86 phones.
+
+            It is signed with a debug key, so it is for testing and sharing,
+            not the Play Store.
 
             ### Windows
 
