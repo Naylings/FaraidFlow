@@ -69,6 +69,34 @@ jobs:
           echo "$ANDROID_KEYSTORE_B64" | base64 -d > /tmp/faraidflow-upload.jks
           echo "KEYSTORE_PATH=/tmp/faraidflow-upload.jks" >> "$GITHUB_ENV"
 
+      - name: Validate upload keystore
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -eu
+          if [ -z "${KEYSTORE_PATH:-}" ]; then
+            echo "no keystore configured; skipping validation (debug build)"
+            exit 0
+          fi
+          # Step 1: can the store be opened at all? A failure here means the
+          # store password is wrong OR the base64 round-trip produced a corrupt
+          # file (truncated paste is the classic) — Gradle reports both the
+          # same way after a 5-minute build, so catch it here in seconds.
+          if ! keytool -list -keystore "$KEYSTORE_PATH" -storepass "$KEYSTORE_PASSWORD" > /tmp/keytool.log 2>&1; then
+            echo "::error::cannot open keystore with ANDROID_KEYSTORE_PASSWORD — either the pasted password is wrong, or ANDROID_KEYSTORE_B64 was truncated/corrupted in copy-paste (re-encode and re-paste it). See docs/android-release-signing.md troubleshooting."
+            cat /tmp/keytool.log
+            exit 1
+          fi
+          # Step 2: does the alias exist? (Wrong alias fails differently from a
+          # wrong password, so check it separately for a precise message.)
+          if ! keytool -list -keystore "$KEYSTORE_PATH" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" > /tmp/keytool.log 2>&1; then
+            echo "::error::alias $KEY_ALIAS not found in keystore — ANDROID_KEY_ALIAS does not match (keytool is case-sensitive). Available aliases are listed by running keytool -list locally."
+            cat /tmp/keytool.log
+            exit 1
+          fi
+          echo "keystore OK"
+
       - run: uv sync
 
       - name: Build

@@ -56,6 +56,28 @@ The SHA digest must match the upload certificate, not the debug one.
 
 ## 5. Never commit the keystore
 
-No keystore file ever enters git: `.gitignore` covers `*.jks` and
-`*.keystore`. Secrets live only in GitHub Settings, mapped through
-`env:` in the workflow — never pasted into code or logs.
+No keystore file ever enters git: `.gitignore` covers `*.jks`,
+`*.keystore`, and `*.b64`. Secrets live only in GitHub Settings, mapped
+through `env:` in the workflow — never pasted into code or logs.
+
+## 6. Troubleshooting: "keystore password was incorrect"
+
+Gradle reports this one message for three different problems. Check them
+in this order, locally (any JDK ships `keytool`):
+
+1. **Wrong store password pasted.** Run
+   `keytool -list -keystore faraidflow-upload.jks -storepass <what-you-pasted>`.
+   If it asks for the password again or errors, the `ANDROID_KEYSTORE_PASSWORD`
+   value is wrong — most often the *key* password pasted into the *store*
+   field (keytool asks for both at creation; they are different secrets).
+2. **Truncated base64 paste.** Re-encode and compare sizes: the pasted
+   secret, decoded, must be byte-identical to the local `.jks`
+   (`certutil -decode` it back and compare hashes). A copy that missed the
+   tail decodes into a corrupt file, which fails exactly like a bad password.
+3. **Wrong alias.** `keytool -list` (with the right store password) prints
+   the aliases actually in the file — `ANDROID_KEY_ALIAS` must match one
+   exactly; it is case-sensitive.
+
+CI runs these same checks up front now (the Validate upload keystore step),
+so a repeat fails in seconds with the precise cause instead of after the
+full build.
