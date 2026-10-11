@@ -54,11 +54,18 @@ jobs:
         run: yes | flutter doctor --android-licenses || true
 
       - name: Decode upload keystore
-        if: ${{ secrets.ANDROID_KEYSTORE_B64 != '' }}
         env:
           ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
         run: |
           set -eu
+          # `secrets.*` is not usable in a step `if:` condition (the parser
+          # rejects the context there), so the presence test lives here in
+          # shell, where an absent secret is simply empty. Unsigned contexts
+          # exit here and take the debug-signing path in Build.
+          if [ -z "${ANDROID_KEYSTORE_B64:-}" ]; then
+            echo "no upload keystore secret; APK will be debug-signed"
+            exit 0
+          fi
           echo "$ANDROID_KEYSTORE_B64" | base64 -d > /tmp/faraidflow-upload.jks
           echo "KEYSTORE_PATH=/tmp/faraidflow-upload.jks" >> "$GITHUB_ENV"
 
