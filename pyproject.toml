@@ -54,3 +54,15 @@ copyright = "Copyright (C) 2026 FaraidFlow"
 
 [tool.flet.app]
 path = "src"
+
+# Dart dependency overrides, merged by flet-cli into the generated Flutter
+# project's pubspec (dependencies / dependency_overrides / dev_dependencies).
+# Why jni is pinned: pub.dev floating resolution currently pairs
+# jni_flutter-1.0.4+1 (whose generated code asserts package:jni ^1.1.0) with
+# an older jni 1.0.x held back by another transitive constraint, which fails
+# Dart compilation with "generated bindings expect package:jni ^1.1.0, but
+# 1.0.x was imported". An override beats every other constraint, so this
+# forces the compatible pair. Revisit on a flet/Flutter upgrade or once the
+# upstream diamond resolves; keeping the pin is harmless either way.
+[tool.flet.flutter.pubspec.dependency_overrides]
+jni = "^1.1.0"
