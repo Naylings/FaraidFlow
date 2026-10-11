@@ -29,11 +29,14 @@ env:
 jobs:
   apk:
     name: Android APK
-    runs-on: ubuntu-latest
+    # Pinned, not latest: the ubuntu-latest pointer migrates images without
+    # warning (26.04 from Oct 2026), and release builds deserve a frozen
+    # image. Revisit deliberately, never by surprise.
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -45,7 +48,7 @@ jobs:
           channel: stable
           cache: true
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
@@ -150,9 +153,9 @@ jobs:
     name: Windows build
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -244,9 +247,9 @@ jobs:
       pages: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
