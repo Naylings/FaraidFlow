@@ -200,10 +200,17 @@ jobs:
       - name: Collect
         shell: pwsh
         run: |
-          $exes = Get-ChildItem -Path dist -Recurse -Filter '*.exe' -File
-          $exes | Format-Table FullName, Length
-          $exe = $exes | Sort-Object Length -Descending | Select-Object -First 1
-          if (-not $exe) { Write-Error "no .exe under dist"; exit 1 }
+          # Orientation: where are the megabytes? Top 30 files only, so the
+          # thousands of files under site-packages don't flood the log.
+          Get-ChildItem -Path dist -Recurse -File |
+            Sort-Object Length -Descending | Select-Object -First 30 |
+            Format-Table FullName, Length
+          # The shippable exe is the built product. Never pick by size: dist
+          # also holds pip console-script stubs (flet.exe, httpx.exe, ...) and
+          # the old biggest-exe heuristic once shipped a 162KB zip of stubs.
+          $product = (Select-String -Path pyproject.toml -Pattern '^product\s*=\s*"(.*)"').Matches[0].Groups[1].Value
+          $exe = Get-ChildItem -Path dist -Recurse -Filter "$product.exe" -File | Select-Object -First 1
+          if (-not $exe) { Write-Error "built product $product.exe not found under dist; see listing above"; exit 1 }
           # The exe needs the DLLs and data beside it to run, so ship the folder
           # as a zip rather than the bare binary.
           $dir = Split-Path $exe.FullName -Parent
