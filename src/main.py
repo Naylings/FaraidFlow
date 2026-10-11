@@ -22,7 +22,7 @@ PYPROJECT = Path(__file__).resolve().parent.parent / "pyproject.toml"
 # About page saying anything in a bundle - so it MUST be bumped in step with
 # pyproject.toml, and test_the_fallback_is_the_version_pyproject_declares fails
 # the build if it is not.
-FALLBACK_VERSION = "0.1.0-beta.1"
+FALLBACK_VERSION = "0.1.0-beta.3"
 
 
 def read_version(pyproject: Path | None = None) -> str:

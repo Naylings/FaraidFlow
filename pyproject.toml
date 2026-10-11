@@ -1,6 +1,6 @@
 [project]
 name = "ahli-waris"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.3"
 description = "Kalkulator pewarisan Islam (faraid) dengan dukungan bahasa Indonesia dan Inggris"
 readme = "README.md"
 requires-python = ">=3.11"
