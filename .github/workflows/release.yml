@@ -125,7 +125,10 @@ jobs:
             base="$(basename "$apk" .apk)"
             stem="${base%-release}"
             stem="${stem%-debug}"
-            abi="${stem#app-}"
+            # Flet names split APKs app-<project>-<abi>-release.apk; strip the
+            # app-<project> prefix so the published name is ahli-waris-<ver>-<abi>.
+            abi="${stem#app-ahli-waris-}"
+            abi="${abi#app-}"
             if [ -z "$abi" ]; then abi="$base"; fi
             cp "$apk" "out/ahli-waris-${ver}-${abi}.apk"
             found=1
@@ -197,17 +200,25 @@ jobs:
       - name: Collect
         shell: pwsh
         run: |
-          $exe = Get-ChildItem -Path dist -Recurse -Filter '*.exe' -File |
-                 Sort-Object Length -Descending | Select-Object -First 1
+          $exes = Get-ChildItem -Path dist -Recurse -Filter '*.exe' -File
+          $exes | Format-Table FullName, Length
+          $exe = $exes | Sort-Object Length -Descending | Select-Object -First 1
           if (-not $exe) { Write-Error "no .exe under dist"; exit 1 }
           # The exe needs the DLLs and data beside it to run, so ship the folder
           # as a zip rather than the bare binary.
           $dir = Split-Path $exe.FullName -Parent
+          "bundling from: $dir"
+          Get-ChildItem -LiteralPath $dir | Format-Table Name, Length
           $ver = (Select-String -Path pyproject.toml -Pattern '^version\s*=\s*"(.*)"').Matches[0].Groups[1].Value
           $zip = "out/ahli-waris-$ver-windows-x64.zip"
           New-Item -ItemType Directory -Force -Path out | Out-Null
           Compress-Archive -Path "$dir/*" -DestinationPath $zip
           Get-ChildItem out | Format-Table Name, Length
+          # A working Flutter desktop bundle is tens of MB (flutter_windows.dll
+          # alone is ~30MB). Anything under 10MB is a partial output — fail
+          # loudly rather than publish an app that crashes on launch. This
+          # fails the windows job (and therefore the release) by design.
+          if ((Get-Item $zip).Length -lt 10MB) { Write-Error "bundle implausibly small - refusing to ship; see exe/dir listing above"; exit 1 }
 
       - uses: actions/upload-artifact@v4
         with:
