@@ -28,9 +28,10 @@ async def _about(language="en", back_home=None, version=TEST_VERSION):
 
 def _children(control):
     items = list(getattr(control, "controls", None) or [])
-    child = getattr(control, "content", None)
-    if isinstance(child, ft.Control):
-        items.append(child)
+    for attr in ("content", "title", "subtitle", "leading", "trailing"):
+        child = getattr(control, attr, None)
+        if isinstance(child, ft.Control):
+            items.append(child)
     return items
 
 
@@ -79,15 +80,25 @@ async def test_version_from_pyproject_reaches_the_page():
     assert APP_NAME in labels
 
 
-async def test_the_six_rows_render_in_reading_order():
-    """Spec order: app+version, author, location, credits, license, github."""
+async def test_the_five_cards_render_in_reading_order():
+    """One icon-led card per row, in spec order."""
     about = await _about()
-    labels = _labels(about.build())
-    assert labels[0] == "About", "the header title leads"
-    assert labels[1] == APP_NAME
-    assert labels[2] == f"v{TEST_VERSION}"
-    assert labels[3::2] == [en.TRANSLATIONS[k] for k in SECTION_LABELS]
-    assert labels[4::2] == [AUTHOR, LOCATION, en.TRANSLATIONS["about.credits.body"], LICENSE, GITHUB_URL], "each label sits above its own value"
+    cards = [c for c in _walk(about.build()) if isinstance(c, ft.Card)]
+    assert len(cards) == 5
+    tiles = [c.content for c in cards]
+    assert all(isinstance(tile, ft.ListTile) for tile in tiles)
+    assert [tile.title.value for tile in tiles] == [en.TRANSLATIONS[k] for k in SECTION_LABELS]
+    assert [tile.subtitle.value for tile in tiles] == [AUTHOR, LOCATION, en.TRANSLATIONS["about.credits.body"], LICENSE, GITHUB_URL], "each card pairs its label with its own value"
+
+
+async def test_section_cards_carry_their_icons():
+    about = await _about()
+    icons = [
+        c.leading.icon
+        for c in _walk(about.build())
+        if isinstance(c, ft.ListTile) and c.leading is not None
+    ]
+    assert icons == [ft.Icons.PERSON, ft.Icons.LOCATION_ON, ft.Icons.BOOK, ft.Icons.GAVEL, ft.Icons.CODE]
 
 
 async def test_header_and_section_titles_are_bold_headings():
@@ -100,7 +111,7 @@ async def test_header_and_section_titles_are_bold_headings():
     ]
     assert headings[0].size == 22, "the header title keeps the calculator's title size"
     assert headings[1].size == 26, "the app name sits between the header and the sections"
-    assert {h.size for h in headings[2:]} == {20}
+    assert [h.size for h in headings[2:]] == [18] * 5, "section labels are size-18 bold tile titles"
 
 
 async def test_header_shows_logo_app_name_and_version_badge():

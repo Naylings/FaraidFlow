@@ -76,8 +76,9 @@ class AboutPage:
             alignment=ft.Alignment.CENTER,
         )
 
-    def _sections(self) -> list[ft.Column]:
-        return [self._section(label_key, value) for label_key, _, value in self._rows(self.loc.get)]
+    def _sections(self) -> list[ft.Card]:
+        t = self.loc.get
+        return [self._card(label_key, icon, value) for label_key, icon, value in self._rows(t)]
 
     def _rows(self, t):
         """(label key, icon, value) in reading order. Icons ride along so the
@@ -90,12 +91,12 @@ class AboutPage:
             ("about.github", ft.Icons.CODE, GITHUB_URL),
         ]
 
-    def _section(self, label_key: str, value: str) -> ft.Column:
+    def _card(self, label_key: str, icon, value: str) -> ft.Card:
         t = self.loc.get
-        return ft.Column(
-            controls=[
-                ft.Text(t(label_key), size=20, weight=ft.FontWeight.BOLD),
-                ft.Text(value),
-            ],
-            spacing=6,
+        return ft.Card(
+            content=ft.ListTile(
+                leading=ft.Icon(icon),
+                title=ft.Text(t(label_key), weight=ft.FontWeight.BOLD, size=18),
+                subtitle=ft.Text(value),
+            ),
         )
