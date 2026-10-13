@@ -122,16 +122,18 @@ jobs:
         run: |
           set -eu
           ver="$(python -c 'import tomllib;print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
+          product="$(python -c 'import tomllib;print(tomllib.load(open("pyproject.toml","rb"))["project"]["name"])')"
           mkdir -p out
           found=0
           for apk in $(find dist/apk -name '*.apk' -type f | sort); do
             base="$(basename "$apk" .apk)"
             stem="${base%-release}"
             stem="${stem%-debug}"
-            # Flet names split APKs app-<project>-<abi>-release.apk; strip the
-            # app-<project> prefix so the published name is ahli-waris-<ver>-<abi>.
-            abi="${stem#app-ahli-waris-}"
+            # Flet names split APKs <project>-<abi>-release (no app- prefix);
+            # also tolerate app-<project>- and bare app- shapes.
+            abi="${stem#app-$product-}"
             abi="${abi#app-}"
+            abi="${abi#$product-}"
             if [ -z "$abi" ]; then abi="$base"; fi
             cp "$apk" "out/ahli-waris-${ver}-${abi}.apk"
             found=1
