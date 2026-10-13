@@ -4,7 +4,7 @@ import flet as ft
 
 from app.localization import en, id as id_table
 from app.localization.localization import Localization
-from app.pages.about import APP_NAME, AUTHOR, CREDITS, GITHUB_URL, LICENSE, LOCATION, AboutPage
+from app.pages.about import APP_NAME, AUTHOR, GITHUB_URL, LICENSE, LOCATION, AboutPage
 from fakes import FakePage, FakeStorage
 from main import FALLBACK_VERSION, PYPROJECT, main, read_version
 
@@ -74,7 +74,9 @@ async def test_page_is_a_scrollable_column():
 
 async def test_version_from_pyproject_reaches_the_page():
     about = await _about(version="0.1.0-beta.2")
-    assert f"{APP_NAME} v0.1.0-beta.2" in _labels(about.build()), "the version passed in is the version shown"
+    labels = _labels(about.build())
+    assert "v0.1.0-beta.2" in labels, "the version passed in is the version shown"
+    assert APP_NAME in labels
 
 
 async def test_the_six_rows_render_in_reading_order():
@@ -82,9 +84,10 @@ async def test_the_six_rows_render_in_reading_order():
     about = await _about()
     labels = _labels(about.build())
     assert labels[0] == "About", "the header title leads"
-    assert labels[1] == f"{APP_NAME} v{TEST_VERSION}"
-    assert labels[2::2] == [en.TRANSLATIONS[k] for k in SECTION_LABELS]
-    assert labels[3::2] == [AUTHOR, LOCATION, CREDITS, LICENSE, GITHUB_URL], "each label sits above its own value"
+    assert labels[1] == APP_NAME
+    assert labels[2] == f"v{TEST_VERSION}"
+    assert labels[3::2] == [en.TRANSLATIONS[k] for k in SECTION_LABELS]
+    assert labels[4::2] == [AUTHOR, LOCATION, en.TRANSLATIONS["about.credits.body"], LICENSE, GITHUB_URL], "each label sits above its own value"
 
 
 async def test_header_and_section_titles_are_bold_headings():
@@ -92,12 +95,22 @@ async def test_header_and_section_titles_are_bold_headings():
     headings = [c for c in _walk(about.build()) if isinstance(c, ft.Text) and c.weight == ft.FontWeight.BOLD]
     assert [h.value for h in headings] == [
         "About",
-        f"{APP_NAME} v{TEST_VERSION}",
+        APP_NAME,
         *[en.TRANSLATIONS[k] for k in SECTION_LABELS],
     ]
     assert headings[0].size == 22, "the header title keeps the calculator's title size"
-    assert headings[1].size == 18, "the app name sits between the header and the sections"
+    assert headings[1].size == 26, "the app name sits between the header and the sections"
     assert {h.size for h in headings[2:]} == {20}
+
+
+async def test_header_shows_logo_app_name_and_version_badge():
+    about = await _about()
+    root = about.build()
+    logo = _by_key(root, "about-logo")
+    assert isinstance(logo, ft.Image)
+    assert logo.src == "assets/icon.png"
+    assert (logo.width, logo.height) == (96, 96)
+    assert _by_key(root, "about-version").value == f"v{TEST_VERSION}"
 
 
 async def test_license_and_github_row_values():
@@ -112,21 +125,26 @@ async def test_credits_name_the_software_and_the_sources():
     about = await _about()
     labels = _labels(about.build())
     credits = labels[labels.index(en.TRANSLATIONS["about.credits"]) + 1]
+    assert credits == en.TRANSLATIONS["about.credits.body"]
     for expected in ("Flet", "Flutter", "Python", "BAZNAS"):
         assert expected in credits, expected
+    for expected in ("Flet", "Flutter", "Python", "BAZNAS"):
+        assert expected in id_table.TRANSLATIONS["about.credits.body"], expected
 
 
 async def test_every_about_key_is_rendered_in_english():
     about = await _about()
     labels = _labels(about.build())
-    missing = [k for k in ABOUT_KEYS if k not in ("about.donate", "about.donate_soon") and en.TRANSLATIONS[k] not in labels]
+    # opener tile lands in Task 3 — remove this exclusion there
+    missing = [k for k in ABOUT_KEYS if k not in ("about.donate", "about.donate_soon", "about.github.open") and en.TRANSLATIONS[k] not in labels]
     assert missing == []
 
 
 async def test_every_about_key_is_rendered_in_indonesian():
     about = await _about("id")
     labels = _labels(about.build())
-    missing = [k for k in ABOUT_KEYS if k not in ("about.donate", "about.donate_soon") and id_table.TRANSLATIONS[k] not in labels]
+    # opener tile lands in Task 3 — remove this exclusion there
+    missing = [k for k in ABOUT_KEYS if k not in ("about.donate", "about.donate_soon", "about.github.open") and id_table.TRANSLATIONS[k] not in labels]
     assert missing == []
 
 
@@ -138,7 +156,8 @@ async def test_switching_language_rebuilds_the_page_in_indonesian():
         id_table.TRANSLATIONS[k] for k in SECTION_LABELS
     ]
     assert "Author" not in labels
-    assert f"{APP_NAME} v{TEST_VERSION}" in labels, "the values are the same in both languages"
+    assert id_table.TRANSLATIONS["about.credits.body"] in labels
+    assert en.TRANSLATIONS["about.credits.body"] not in labels
 
 
 async def test_back_button_invokes_back_home():
@@ -215,7 +234,7 @@ async def test_main_shows_the_version_declared_in_pyproject():
     await main(page)
     _by_key(page.controls[0], "menu-about").on_click(None)
     declared = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]["version"]
-    assert f"{APP_NAME} v{declared}" in _labels(page.controls[0])
+    assert _by_key(page.controls[0], "about-version").value == f"v{declared}"
 
 
 async def test_home_and_about_show_the_same_version():
@@ -226,7 +245,7 @@ async def test_home_and_about_show_the_same_version():
     home_version = _by_key(page.controls[0], "home-version")
     assert home_version is not None, "the home screen keeps its version line"
     _by_key(page.controls[0], "menu-about").on_click(None)
-    assert f"{APP_NAME} {home_version.value}" in _labels(page.controls[0])
+    assert _by_key(page.controls[0], "about-version").value == home_version.value
     _by_key(page.controls[0], "back-home").on_click(None)
     assert _by_key(page.controls[0], "home-version").value == home_version.value
 

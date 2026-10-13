@@ -110,6 +110,8 @@ TRANSLATIONS = {
     'about.credits': 'Kredit',
     'about.license': 'Lisensi',
     'about.github': 'GitHub',
+    'about.credits.body': 'Dibangun dengan Flet, Flutter, dan Python. Aturan bagian mengikuti sumber faraid klasik (Al-Qur\u2019an, Sahih Bukhari, Sahih Muslim) dan telah diperiksa silang dengan kalkulator waris BAZNAS untuk konteks Indonesia.',
+    'about.github.open': 'Kunjungi Repositori GitHub',
     'about.donate': 'Donasi',
     'about.donate_soon': 'Hadir di pembaruan mendatang',
 }

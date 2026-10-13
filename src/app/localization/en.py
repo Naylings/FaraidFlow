@@ -110,6 +110,8 @@ TRANSLATIONS = {
     'about.credits': 'Credits',
     'about.license': 'License',
     'about.github': 'GitHub',
+    'about.credits.body': 'Built with Flet, Flutter and Python. The share rules follow the classical faraid sources (Qur\u2019an, Sahih Bukhari, Sahih Muslim) and were cross-checked against BAZNAS\u2019s inheritance calculator for the Indonesian context.',
+    'about.github.open': 'Open GitHub Repository',
     'about.donate': 'Donate',
     'about.donate_soon': 'Coming in a future update',
 }
