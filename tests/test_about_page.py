@@ -146,7 +146,7 @@ async def test_credits_name_the_software_and_the_sources():
 async def test_every_about_key_is_rendered_in_english():
     about = await _about()
     labels = _labels(about.build())
-    # opener tile lands in Task 3 — remove this exclusion there
+    # open text lives in the tile tooltip, asserted in test_github_tile_opens_the_repository
     missing = [k for k in ABOUT_KEYS if k not in ("about.donate", "about.donate_soon", "about.github.open") and en.TRANSLATIONS[k] not in labels]
     assert missing == []
 
@@ -154,9 +154,41 @@ async def test_every_about_key_is_rendered_in_english():
 async def test_every_about_key_is_rendered_in_indonesian():
     about = await _about("id")
     labels = _labels(about.build())
-    # opener tile lands in Task 3 — remove this exclusion there
+    # open text lives in the tile tooltip, asserted in test_github_tile_opens_the_repository
     missing = [k for k in ABOUT_KEYS if k not in ("about.donate", "about.donate_soon", "about.github.open") and id_table.TRANSLATIONS[k] not in labels]
     assert missing == []
+
+
+class _RecordingLauncher:
+    """Stand-in for ft.UrlLauncher: records launches without a live page."""
+
+    def __init__(self):
+        self.calls = []
+
+    async def launch_url(self, url, **kwargs):
+        self.calls.append(url)
+
+
+async def test_github_tile_opens_the_repository():
+    about = await _about()
+    root = about.build()
+    assert isinstance(about.launcher, ft.UrlLauncher)
+    rec = _RecordingLauncher()
+    about.launcher = rec
+    tile = _by_key(root, "about-github-open")
+    assert tile.title.value == en.TRANSLATIONS["about.github"]
+    assert tile.tooltip == en.TRANSLATIONS["about.github.open"]
+    assert tile.subtitle.value == GITHUB_URL
+    assert isinstance(tile.trailing, ft.Icon) and tile.trailing.icon == ft.Icons.OPEN_IN_NEW
+    await tile.on_click(None)
+    assert rec.calls == [GITHUB_URL]
+
+
+async def test_github_open_label_is_indonesian_in_id():
+    about = await _about("id")
+    tile = _by_key(about.build(), "about-github-open")
+    assert tile.title.value == id_table.TRANSLATIONS["about.github"]
+    assert tile.tooltip == "Kunjungi Repositori GitHub"
 
 
 async def test_switching_language_rebuilds_the_page_in_indonesian():

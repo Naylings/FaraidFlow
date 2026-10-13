@@ -32,6 +32,7 @@ class AboutPage:
         self.version = version
 
     def build(self) -> ft.SafeArea:
+        self.launcher = ft.UrlLauncher()
         t = self.loc.get
         header = ft.Row([
             # Same key as the calculator's back button, so any screen's back
@@ -78,7 +79,7 @@ class AboutPage:
 
     def _sections(self) -> list[ft.Card]:
         t = self.loc.get
-        return [self._card(label_key, icon, value) for label_key, icon, value in self._rows(t)]
+        return [self._github_card() if label_key == "about.github" else self._card(label_key, icon, value) for label_key, icon, value in self._rows(t)]
 
     def _rows(self, t):
         """(label key, icon, value) in reading order. Icons ride along so the
@@ -98,5 +99,22 @@ class AboutPage:
                 leading=ft.Icon(icon),
                 title=ft.Text(t(label_key), weight=ft.FontWeight.BOLD, size=18),
                 subtitle=ft.Text(value),
+            ),
+        )
+
+    async def _open_github(self, e) -> None:
+        await self.launcher.launch_url(GITHUB_URL)
+
+    def _github_card(self) -> ft.Card:
+        t = self.loc.get
+        return ft.Card(
+            content=ft.ListTile(
+                key="about-github-open",
+                leading=ft.Icon(ft.Icons.CODE),
+                title=ft.Text(t("about.github"), weight=ft.FontWeight.BOLD, size=18),
+                subtitle=ft.Text(GITHUB_URL),
+                trailing=ft.Icon(ft.Icons.OPEN_IN_NEW),
+                tooltip=t("about.github.open"),
+                on_click=self._open_github,
             ),
         )
